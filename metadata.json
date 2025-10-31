@@ -1,0 +1,5 @@
+{
+  "name": "AI Note Taker",
+  "description": "An intelligent note-taking application powered by Gemini. Type your notes, and use AI to generate, edit, and enhance your text through intuitive context menus and a powerful chat interface.",
+  "requestFramePermissions": []
+}

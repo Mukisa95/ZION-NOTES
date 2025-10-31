@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>AI Note Taker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.22.0",
+    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0"
+  }
+}
+</script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    /* Prevent zoom on input focus on mobile */
+    @media screen and (max-width: 640px) {
+      input, textarea, select {
+        font-size: 16px !important;
+      }
+    }
+    
+    /* Ensure dropdowns stay within viewport */
+    select {
+      max-width: 100%;
+    }
+    
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    
+    /* Modern scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    
+    .dark ::-webkit-scrollbar-thumb {
+      background: #475569;
+    }
+    
+    .dark ::-webkit-scrollbar-thumb:hover {
+      background: #64748b;
+    }
+  /* Word-compatible font sizes for editor */
+  [contenteditable] {
+    font-size: 11pt;
+    font-family: Calibri, Arial, sans-serif;
+  }
+  
+  /* Standard Word heading sizes */
+  [contenteditable] h1 {
+    font-size: 16pt;
+    font-weight: bold;
+  }
+  
+  [contenteditable] h2 {
+    font-size: 13pt;
+    font-weight: bold;
+  }
+  
+  [contenteditable] h3 {
+    font-size: 12pt;
+    font-weight: bold;
+  }
+  
+  [contenteditable] h4 {
+    font-size: 11pt;
+    font-weight: bold;
+  }
+  
+  [contenteditable] h5 {
+    font-size: 10pt;
+    font-weight: bold;
+  }
+  
+  [contenteditable] h6 {
+    font-size: 9pt;
+    font-weight: bold;
+  }
+  
+  /* Modern Select Dropdowns */
+  select {
+    background-color: white;
+  }
+  
+  .dark select {
+    background-color: #1f2937;
+  }
+  
+  select option {
+    background-color: white;
+    color: #374151;
+  }
+  
+  .dark select option {
+    background-color: #1f2937;
+    color: #d1d5db;
+  }
+  
+  /* For Image & Table Controls */
+  .resize-handle {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    background-color: #3b82f6; /* blue-500 */
+    border: 2px solid white;
+    border-radius: 50%;
+    z-index: 40;
+    box-shadow: 0 0 5px rgba(0,0,0,0.3);
+  }
+  .resize-handle-br { bottom: -6px; right: -6px; cursor: se-resize; }
+  .resize-handle-bl { bottom: -6px; left: -6px; cursor: sw-resize; }
+  .resize-handle-tr { top: -6px; right: -6px; cursor: ne-resize; }
+  .resize-handle-tl { top: -6px; left: -6px; cursor: nw-resize; }
+  
+  .col-resize-handle {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    cursor: col-resize;
+    z-index: 10;
+    transition: background-color 0.2s;
+  }
+  .col-resize-handle:hover {
+    background-color: rgba(59, 130, 246, 0.5); /* blue-500 with opacity */
+  }
+
+  /* For Find & Replace Highlights (non-destructive) */
+  ::highlight(search-results) {
+    background-color: #fef08a; /* yellow-200 */
+    color: #422006; /* yellow-950 */
+  }
+  ::highlight(current-search-result) {
+    background-color: #fb923c; /* orange-400 */
+    color: #ffffff;
+  }
+
+  /* Alignment classes from Word documents */
+  .align-left {
+    text-align: left !important;
+  }
+  .align-center {
+    text-align: center !important;
+  }
+  .align-right {
+    text-align: right !important;
+  }
+  .align-justify {
+    text-align: justify !important;
+  }
+
+  /* List styling - ensure bullets and numbers show */
+  ul, ol {
+    list-style-position: outside;
+    margin-left: 0;
+    padding-left: 2em;
+  }
+  
+  ul {
+    list-style-type: disc;
+  }
+  
+  ol {
+    list-style-type: decimal;
+  }
+  
+  li {
+    display: list-item;
+    margin-bottom: 0.3em;
+    line-height: 1.5;
+  }
+  
+  /* Support for unnumbered paragraphs within lists (like Word) */
+  p.list-indent {
+    margin-left: 2em;
+    margin-bottom: 0.3em;
+    line-height: 1.5;
+  }
+  
+  /* Custom list markers using CSS counters */
+  li[data-number]::before {
+    content: var(--list-marker);
+    margin-right: 0.5em;
+    font-weight: normal;
+  }
+  
+  li[data-number] {
+    list-style: none;
+  }
+  
+  /* Nested lists */
+  ul ul {
+    list-style-type: circle;
+    margin-top: 0.2em;
+  }
+  
+  ul ul ul {
+    list-style-type: square;
+  }
+  
+  ol ol {
+    list-style-type: lower-alpha;
+    margin-top: 0.2em;
+  }
+  
+  ol ol ol {
+    list-style-type: lower-roman;
+  }
+  
+  /* Mixed nested lists */
+  ul ol, ol ul {
+    margin-top: 0.2em;
+  }
+  
+  /* Animation for dropdowns */
+  @keyframes fade-in-fast {
+    from {
+      opacity: 0;
+      transform: translateY(-5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-fade-in-fast {
+    animation: fade-in-fast 0.15s ease-out;
+  }
+  
+  /* Placeholder animations */
+  @keyframes float-gentle {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+  
+  @media (min-width: 768px) {
+    @keyframes float-gentle {
+      0%, 100% {
+        transform: translateY(0px);
+      }
+      50% {
+        transform: translateY(-12px);
+      }
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    @keyframes float-gentle {
+      0%, 100% {
+        transform: translateY(0px);
+      }
+      50% {
+        transform: translateY(-15px);
+      }
+    }
+  }
+  
+  @keyframes pulse-glow {
+    0%, 100% {
+      opacity: 0.3;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.5;
+      transform: scale(1.02);
+    }
+  }
+  
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-float-gentle {
+    animation: float-gentle 4s ease-in-out infinite;
+  }
+  
+  .animate-pulse-glow {
+    animation: pulse-glow 3s ease-in-out infinite;
+  }
+  
+  /* Document and WARE animations */
+  @keyframes fadeInScale {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  @keyframes fadeInSlide {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      max-height: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      max-height: 1000px;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-slide-down {
+    animation: slideDown 0.4s ease-out;
+    overflow: hidden;
+  }
+  
+  @keyframes fadeInUpStagger {
+    from {
+      opacity: 0;
+      transform: translateY(15px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-fade-in-up-stagger {
+    animation: fadeInUpStagger 0.4s ease-out;
+  }
+  
+  .animate-fade-in-up {
+    animation: fade-in-up 0.8s ease-out;
+  }
+  
+  /* Smooth expansion animation */
+  @keyframes expandHeight {
+    from {
+      max-height: 0;
+      opacity: 0;
+    }
+    to {
+      max-height: 2000px;
+      opacity: 1;
+    }
+  }
+  
+  .animate-expand {
+    animation: expandHeight 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+  }
+  
+  /* Gentle bounce for document cards */
+  @keyframes gentleBounce {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-3px);
+    }
+  }
+  
+  @keyframes shimmer {
+    0% {
+      background-position: -1000px 0;
+    }
+    100% {
+      background-position: 1000px 0;
+    }
+  }
+  
+  .animate-shimmer {
+    animation: shimmer 2s infinite linear;
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      rgba(255, 255, 255, 0.1) 50%,
+      transparent 100%
+    );
+    background-size: 1000px 100%;
+  }
+  
+  /* Compression animation - documents getting sucked into WARES */
+  @keyframes compressToWare {
+    0% {
+      opacity: 1;
+      transform: scale(1) translate(0, 0);
+      filter: blur(0px);
+    }
+    20% {
+      opacity: 0.95;
+      transform: scale(0.95) translate(0, 0);
+      filter: blur(0.5px);
+    }
+    40% {
+      opacity: 0.85;
+      transform: scale(0.85) translate(0, 0);
+      filter: blur(1px);
+    }
+    60% {
+      opacity: 0.6;
+      transform: scale(0.6) translate(0, 0);
+      filter: blur(2px);
+    }
+    80% {
+      opacity: 0.3;
+      transform: scale(0.35) translate(0, 0);
+      filter: blur(3px);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(0.15);
+      filter: blur(5px);
+      pointer-events: none;
+    }
+  }
+  
+  @keyframes compressScale {
+    0% {
+      opacity: 1;
+      transform: scale(1);
+      filter: blur(0px);
+    }
+    15% {
+      opacity: 0.95;
+      transform: scale(0.92);
+      filter: blur(0.3px);
+    }
+    30% {
+      opacity: 0.85;
+      transform: scale(0.8);
+      filter: blur(0.6px);
+    }
+    50% {
+      opacity: 0.65;
+      transform: scale(0.6);
+      filter: blur(1.2px);
+    }
+    70% {
+      opacity: 0.4;
+      transform: scale(0.4);
+      filter: blur(2px);
+    }
+    85% {
+      opacity: 0.2;
+      transform: scale(0.25);
+      filter: blur(3px);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(0.1);
+      filter: blur(4px);
+      pointer-events: none;
+    }
+  }
+  
+  .animate-compress-to-ware {
+    animation: compressToWare 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    z-index: 10;
+    will-change: transform, opacity, filter;
+  }
+  
+  .animate-compress-scale {
+    animation: compressScale 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    z-index: 10;
+    will-change: transform, opacity, filter;
+  }
+  
+  /* Pulse effect for WARE receiving documents */
+  @keyframes warePulse {
+    0% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+    }
+    30% {
+      transform: scale(1.03);
+      box-shadow: 0 0 15px 3px rgba(59, 130, 246, 0.3);
+    }
+    60% {
+      transform: scale(1.06);
+      box-shadow: 0 0 25px 6px rgba(59, 130, 246, 0.5);
+    }
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+    }
+  }
+  
+  .animate-ware-receive {
+    animation: warePulse 1.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    will-change: transform, box-shadow;
+  }
+</style>
+</head>
+   <body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-slate-900 dark:to-gray-900">
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
