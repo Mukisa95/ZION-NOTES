@@ -719,6 +719,11 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                                                             <h4 className="font-normal text-gray-900 dark:text-white truncate text-sm">
                                                                 {doc.name}
                                                             </h4>
+                                                            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                                                <span>{doc.wordCount} words</span>
+                                                                <span>•</span>
+                                                                <span>{formatDate(doc.lastModified || doc.updatedAt || 0)}</span>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -866,6 +871,11 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                                         <h3 className="font-normal text-gray-900 dark:text-white truncate text-sm">
                                             {doc.name}
                                         </h3>
+                                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                            <span>{doc.wordCount} words</span>
+                                            <span>•</span>
+                                            <span>{formatDate(doc.lastModified || doc.updatedAt || 0)}</span>
+                                        </div>
                                     </div>
                                     
                                     {!selectionMode && (
