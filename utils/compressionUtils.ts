@@ -227,6 +227,7 @@ export enum CompressionMethod {
   REDUCE_QUALITY = 'reduce_quality',
   GZIP = 'gzip',
   GZIP_AND_REDUCE = 'gzip_and_reduce',
+  REMOVE_IMAGES_AND_GZIP = 'remove_images_and_gzip',
   SPLIT_DOCUMENT = 'split_document'
 }
 
@@ -308,8 +309,16 @@ export const applyCompression = async (
       return await compressWithGzip(content);
       
     case CompressionMethod.GZIP_AND_REDUCE:
+      // Step 1: Reduce image quality
       const reduced = await reduceImageQuality(content, quality);
+      // Step 2: GZIP compress everything
       return await compressWithGzip(reduced);
+      
+    case CompressionMethod.REMOVE_IMAGES_AND_GZIP:
+      // Step 1: Remove all images
+      const noImages = removeAllImages(content);
+      // Step 2: GZIP compress the text
+      return await compressWithGzip(noImages);
       
     case CompressionMethod.SPLIT_DOCUMENT:
       // For split, we'll handle this differently in the dialog

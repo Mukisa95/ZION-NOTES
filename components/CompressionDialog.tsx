@@ -69,9 +69,14 @@ export const CompressionDialog: React.FC<CompressionDialogProps> = ({
           break;
           
         case CompressionMethod.GZIP_AND_REDUCE:
-          // Combined effect
+          // Step 1: Reduce images, Step 2: GZIP everything
           const reducedImages = sizeBreakdown.images * (1 - quality);
-          estimated = (sizeBreakdown.text * 0.3) + (reducedImages * 0.9);
+          estimated = (sizeBreakdown.text + reducedImages) * 0.35; // GZIP compresses the combined result
+          break;
+          
+        case CompressionMethod.REMOVE_IMAGES_AND_GZIP:
+          // Step 1: Remove images, Step 2: GZIP text
+          estimated = sizeBreakdown.text * 0.3; // Just compressed text
           break;
           
         case CompressionMethod.SPLIT_DOCUMENT:
@@ -300,13 +305,95 @@ export const CompressionDialog: React.FC<CompressionDialogProps> = ({
                 </div>
                 <div className="flex-1">
                   <div className="font-semibold text-gray-900 dark:text-white">
-                    GZIP Compression
+                    GZIP Text Compression
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                     Compress text content using GZIP algorithm. Best for text-heavy documents.
                   </div>
-                  <div className="text-xs text-green-600 dark:text-green-400 font-medium mt-2">
+                  <div className="text-xs text-blue-600 dark:text-blue-400 font-medium mt-2">
                     Best for text • Est. {formatBytes(estimatedSize)} final size
+                  </div>
+                </div>
+              </div>
+            </label>
+
+            {/* Combined: Reduce Quality + GZIP */}
+            <label className={`block p-4 border-2 rounded-lg cursor-pointer transition-all ${
+              selectedMethod === CompressionMethod.GZIP_AND_REDUCE
+                ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20'
+                : 'border-gray-200 dark:border-gray-700 hover:border-orange-300 dark:hover:border-orange-600'
+            }`}>
+              <input
+                type="radio"
+                name="compression"
+                value={CompressionMethod.GZIP_AND_REDUCE}
+                checked={selectedMethod === CompressionMethod.GZIP_AND_REDUCE}
+                onChange={(e) => setSelectedMethod(e.target.value as CompressionMethod)}
+                className="sr-only"
+              />
+              <div className="flex items-start gap-3">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
+                  selectedMethod === CompressionMethod.GZIP_AND_REDUCE
+                    ? 'border-orange-500 bg-orange-500'
+                    : 'border-gray-300 dark:border-gray-600'
+                }`}>
+                  {selectedMethod === CompressionMethod.GZIP_AND_REDUCE && (
+                    <div className="w-2 h-2 bg-white rounded-full" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    Reduce Images + GZIP
+                    <span className="text-xs bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full font-bold">COMBO</span>
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    <strong>Step 1:</strong> Reduce image quality ({Math.round(quality * 100)}%)
+                    <br />
+                    <strong>Step 2:</strong> GZIP compress everything
+                  </div>
+                  <div className="text-xs text-orange-600 dark:text-orange-400 font-medium mt-2">
+                    Powerful combo • Est. {formatBytes(estimatedSize)} final size
+                  </div>
+                </div>
+              </div>
+            </label>
+
+            {/* Combined: Remove Images + GZIP */}
+            <label className={`block p-4 border-2 rounded-lg cursor-pointer transition-all ${
+              selectedMethod === CompressionMethod.REMOVE_IMAGES_AND_GZIP
+                ? 'border-red-500 bg-red-50 dark:bg-red-900/20'
+                : 'border-gray-200 dark:border-gray-700 hover:border-red-300 dark:hover:border-red-600'
+            }`}>
+              <input
+                type="radio"
+                name="compression"
+                value={CompressionMethod.REMOVE_IMAGES_AND_GZIP}
+                checked={selectedMethod === CompressionMethod.REMOVE_IMAGES_AND_GZIP}
+                onChange={(e) => setSelectedMethod(e.target.value as CompressionMethod)}
+                className="sr-only"
+              />
+              <div className="flex items-start gap-3">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
+                  selectedMethod === CompressionMethod.REMOVE_IMAGES_AND_GZIP
+                    ? 'border-red-500 bg-red-500'
+                    : 'border-gray-300 dark:border-gray-600'
+                }`}>
+                  {selectedMethod === CompressionMethod.REMOVE_IMAGES_AND_GZIP && (
+                    <div className="w-2 h-2 bg-white rounded-full" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    Remove Images + GZIP
+                    <span className="text-xs bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full font-bold">ULTRA</span>
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    <strong>Step 1:</strong> Strip all {sizeBreakdown.imageCount} images
+                    <br />
+                    <strong>Step 2:</strong> GZIP compress text (~70% reduction)
+                  </div>
+                  <div className="text-xs text-red-600 dark:text-red-400 font-medium mt-2">
+                    Maximum reduction • Est. {formatBytes(estimatedSize)} final size
                   </div>
                 </div>
               </div>
