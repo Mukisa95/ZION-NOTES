@@ -399,7 +399,7 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                 {wares.length > 0 && (
                     <div className="mb-8">
                         <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">WARES</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="flex flex-wrap gap-4 sm:gap-6">
                             {wares.map((ware, index) => {
                                 const colorStyle = getWareColorStyle(ware.color);
                                 const isDark = document.documentElement.classList.contains('dark');
@@ -408,67 +408,43 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                                     <div
                                         key={ware.id}
                                         onClick={() => handleOpenWare(ware)}
-                                        className="group relative p-5 rounded-xl border-2 hover:shadow-lg transition-all duration-300 transform hover:scale-[1.02] cursor-pointer"
+                                        className="group flex flex-col items-center gap-2 cursor-pointer transition-transform duration-200 hover:scale-105"
                                         style={{
-                                            background: isDark ? colorStyle.backgroundDark : colorStyle.background,
-                                            borderColor: isDark ? colorStyle.borderColorDark : colorStyle.borderColor,
-                                            animation: `fadeInScale 0.5s ease-out ${index * 100}ms both`
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            (e.currentTarget as HTMLElement).style.borderColor = isDark 
-                                                ? colorStyle.borderColorHoverDark 
-                                                : colorStyle.borderColorHover;
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            (e.currentTarget as HTMLElement).style.borderColor = isDark 
-                                                ? colorStyle.borderColorDark 
-                                                : colorStyle.borderColor;
+                                            width: '90px'
                                         }}
                                     >
-                                        <div className="flex items-start gap-3 mb-3">
-                                            <div 
-                                                className="p-2 rounded-lg"
-                                                style={{
-                                                    backgroundColor: isDark ? colorStyle.iconBgDark : colorStyle.iconBg
-                                                }}
-                                            >
-                                                <FolderIcon 
-                                                    className="h-6 w-6"
-                                                    style={{
-                                                        color: isDark ? colorStyle.iconColorDark : colorStyle.iconColor
-                                                    }}
-                                                />
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <h3 className="font-semibold text-gray-900 dark:text-white mb-1 truncate text-base">
-                                                    {ware.name}
-                                                </h3>
-                                                <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                                    <span>{ware.documentIds.length} document{ware.documentIds.length !== 1 ? 's' : ''}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSelectedWare(ware);
-                                                setIsAddDocumentsModalOpen(true);
-                                            }}
-                                            className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity px-3 py-1.5 text-white text-xs font-semibold rounded-lg"
+                                        <div 
+                                            className="relative p-3 rounded-lg transition-all duration-200"
                                             style={{
-                                                backgroundColor: colorStyle.buttonBg
+                                                backgroundColor: isDark ? colorStyle.iconBgDark : colorStyle.iconBg,
+                                                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                                             }}
-                                            onMouseEnter={(e) => {
-                                                (e.currentTarget as HTMLElement).style.backgroundColor = colorStyle.buttonBgHover;
-                                            }}
-                                            onMouseLeave={(e) => {
-                                                (e.currentTarget as HTMLElement).style.backgroundColor = colorStyle.buttonBg;
-                                            }}
-                                            title="Add documents"
                                         >
-                                            Add Docs
-                                        </button>
+                                            <FolderIcon 
+                                                className="h-12 w-12"
+                                                style={{
+                                                    color: isDark ? colorStyle.iconColorDark : colorStyle.iconColor
+                                                }}
+                                            />
+                                            {ware.documentIds.length > 0 && (
+                                                <div 
+                                                    className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                                                    style={{
+                                                        backgroundColor: isDark ? colorStyle.iconColorDark : colorStyle.iconColor
+                                                    }}
+                                                >
+                                                    {ware.documentIds.length}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="text-center w-full">
+                                            <h3 className="font-medium text-gray-900 dark:text-white text-xs truncate px-1">
+                                                {ware.name}
+                                            </h3>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                {ware.documentIds.length} doc{ware.documentIds.length !== 1 ? 's' : ''}
+                                            </p>
+                                        </div>
                                     </div>
                                 );
                             })}
