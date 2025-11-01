@@ -545,6 +545,9 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                     onOpenDocument={onOpenDocument}
                     onOpenDocuments={onOpenDocuments}
                     onDeleteWare={handleDeleteWare}
+                    onAddDocuments={() => {
+                        setIsAddDocumentsModalOpen(true);
+                    }}
                     userId={userId}
                     incognitoMode={incognitoMode}
                 />
