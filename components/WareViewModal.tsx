@@ -228,10 +228,10 @@ export const WareViewModal: React.FC<WareViewModalProps> = ({
                                 {onAddDocuments && (
                                     <button
                                         onClick={onAddDocuments}
-                                        className="px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all text-xs sm:text-sm flex items-center gap-2"
+                                        className="p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all"
+                                        title="Add documents"
                                     >
-                                        <PlusIcon className="h-4 w-4" />
-                                        Add Docs
+                                        <PlusIcon className="h-5 w-5" />
                                     </button>
                                 )}
                                 <div className="ml-auto relative">
@@ -290,10 +290,10 @@ export const WareViewModal: React.FC<WareViewModalProps> = ({
                             {onAddDocuments && (
                                 <button
                                     onClick={onAddDocuments}
-                                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-all inline-flex items-center gap-2"
+                                    className="p-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all inline-flex items-center justify-center"
+                                    title="Add documents"
                                 >
-                                    <PlusIcon className="h-4 w-4" />
-                                    Add Documents
+                                    <PlusIcon className="h-6 w-6" />
                                 </button>
                             )}
                         </div>

@@ -315,18 +315,6 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                                 <p className="text-sm text-gray-600 dark:text-gray-400">
                                     {filteredDocuments.length} document{filteredDocuments.length !== 1 ? 's' : ''} {documents.length > filteredDocuments.length ? `(${documents.length - filteredDocuments.length} in WARES)` : ''} {searchQuery ? `(filtered)` : ''}
                                 </p>
-                                {userId && !incognitoMode && (
-                                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-md text-xs font-medium">
-                                        <CloudIcon className="h-3 w-3" />
-                                        <span>Cloud Sync</span>
-                                    </div>
-                                )}
-                                {incognitoMode && (
-                                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-md text-xs font-medium">
-                                        <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                                        <span>Local Only</span>
-                                    </div>
-                                )}
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
@@ -363,18 +351,18 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                             
                             <button
                                 onClick={() => setIsCreateWareModalOpen(true)}
-                                className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+                                className="p-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+                                title="New WARE"
                             >
                                 <FolderIcon className="h-5 w-5" />
-                                <span className="hidden sm:inline">New WARE</span>
                             </button>
                             
                             <button
                                 onClick={onCreateNew}
-                                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+                                className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+                                title="New Document"
                             >
                                 <PlusIcon className="h-5 w-5" />
-                                <span>New Document</span>
                             </button>
                         </div>
                     </div>
@@ -413,15 +401,9 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                                             width: '90px'
                                         }}
                                     >
-                                        <div 
-                                            className="relative p-3 rounded-lg transition-all duration-200"
-                                            style={{
-                                                backgroundColor: isDark ? colorStyle.iconBgDark : colorStyle.iconBg,
-                                                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                                            }}
-                                        >
+                                        <div className="relative">
                                             <FolderIcon 
-                                                className="h-12 w-12"
+                                                className="h-12 w-12 transition-all duration-200"
                                                 style={{
                                                     color: isDark ? colorStyle.iconColorDark : colorStyle.iconColor
                                                 }}
@@ -497,28 +479,21 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                             <div
                                 key={doc.id}
                                 onClick={() => onOpenDocument(doc)}
-                                className="group relative flex items-center gap-3 p-2.5 sm:p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm transition-all duration-200 cursor-pointer"
+                                className="group relative flex items-center gap-2 py-1.5 px-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded transition-all duration-200 cursor-pointer"
                             >
-                                <div className="p-1.5 sm:p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex-shrink-0">
-                                    <DocumentIcon className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400" />
-                                </div>
+                                <DocumentIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
                                 <div className="flex-1 min-w-0">
-                                    <h3 className="font-medium text-gray-900 dark:text-white mb-0.5 truncate text-sm sm:text-base">
+                                    <h3 className="font-normal text-gray-900 dark:text-white truncate text-sm">
                                         {doc.name}
                                     </h3>
-                                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                                        <span>{doc.wordCount}w</span>
-                                        <span>•</span>
-                                        <span className="truncate">{formatDate(doc.lastModified || doc.updatedAt || 0)}</span>
-                                    </div>
                                 </div>
                                 
                                 <button
                                     onClick={(e) => handleDelete(doc.id, e)}
-                                    className="p-1.5 sm:p-2 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all flex-shrink-0 opacity-0 group-hover:opacity-100"
+                                    className="p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all flex-shrink-0 opacity-0 group-hover:opacity-100"
                                     title="Delete document"
                                 >
-                                    <TrashIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                    <TrashIcon className="h-4 w-4" />
                                 </button>
                             </div>
                         ))}
