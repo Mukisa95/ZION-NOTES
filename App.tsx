@@ -17,6 +17,7 @@ import { UserProfile } from './components/UserProfile';
 import { DocumentLandingPage } from './components/DocumentLandingPage';
 import { WareViewModal } from './components/WareViewModal';
 import { CompressionDialog } from './components/CompressionDialog';
+import { CompressionIndicator } from './components/CompressionIndicator';
 import { useAuth } from './contexts/AuthContext';
 import { saveDocument, updateDocument, getCurrentDocumentId, setCurrentDocumentId, SavedDocument } from './services/documentStorage';
 import { Ware, deleteWare } from './services/wareStorage';
@@ -532,6 +533,15 @@ const App: React.FC = () => {
     setIsAutoSaving(true);
     try {
       if (user && !incognitoMode) {
+        // Check size before auto-save
+        const contentSize = getContentSize(activeTab.content);
+        if (contentSize > 900000) {
+          // Too large for auto-save - warn user
+          console.warn('Document too large for auto-save. Manual save with compression required.');
+          setIsAutoSaving(false);
+          return;
+        }
+        
         // Save to Firestore
         await updateDocumentInFirestore(user.uid, activeTab.id, {
           name: activeTab.name,
@@ -1004,9 +1014,13 @@ const App: React.FC = () => {
     // Decompress content if it was compressed
     if (documentContent.startsWith('GZIP:') || documentContent.startsWith('LZ:')) {
       try {
+        console.log('Decompressing document...');
         documentContent = await decompressGzip(documentContent);
+        console.log('Decompression successful');
       } catch (error) {
         console.error('Failed to decompress document:', error);
+        alert('Failed to decompress document. The document may be corrupted.');
+        return;
       }
     }
 
@@ -1478,6 +1492,9 @@ const App: React.FC = () => {
             onZoomOut={() => setZoomLevel(z => Math.max(50, z - 10))}
             onSetZoom={setZoomLevel}
         />
+        
+        {/* Compression Indicator */}
+        {activeTab && <CompressionIndicator content={activeTab.content} />}
         
         {/* Auto-save indicator */}
         {isAutoSaving && activeTab?.id.startsWith('doc_') && (

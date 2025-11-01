@@ -107,6 +107,7 @@ export const getDocumentFromFirestore = async (userId: string, documentId: strin
     
     if (docSnap.exists() && docSnap.data().userId === userId) {
       const data = docSnap.data();
+      console.log('Retrieved document from Firestore:', documentId, 'Content preview:', data.content.substring(0, 100));
       return {
         id: docSnap.id,
         name: data.name,
@@ -122,7 +123,7 @@ export const getDocumentFromFirestore = async (userId: string, documentId: strin
   }
 };
 
-// Get all documents for a user from Firestore
+// Get all documents for a user from Firestore  
 export const getAllDocumentsFromFirestore = async (userId: string): Promise<SavedDocument[]> => {
   try {
     console.log('Firestore query attempt for user:', userId);
@@ -137,11 +138,11 @@ export const getAllDocumentsFromFirestore = async (userId: string): Promise<Save
     
     const documents: SavedDocument[] = [];
     
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      console.log('Processing document:', doc.id, data.name);
+    querySnapshot.forEach((docSnapshot) => {
+      const data = docSnapshot.data();
+      console.log('Processing document:', docSnapshot.id, data.name, 'Compressed:', data.content.startsWith('GZIP:') || data.content.startsWith('LZ:'));
       documents.push({
-        id: doc.id,
+        id: docSnapshot.id,
         name: data.name,
         content: data.content,
         lastModified: data.lastModified.toMillis(),
@@ -149,7 +150,7 @@ export const getAllDocumentsFromFirestore = async (userId: string): Promise<Save
       });
     });
     
-    console.log('Final documents array:', documents);
+    console.log('Final documents array:', documents.length, 'documents');
     return documents;
   } catch (error) {
     console.error('Error getting documents from Firestore:', error);
