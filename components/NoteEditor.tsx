@@ -173,6 +173,18 @@ const ContextMenu: React.FC<{
       { label: AiAction.EXPAND, icon: <ExpandIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.EXPAND) },
       { label: AiAction.FIND_ALTERNATIVES, icon: <AlternativesIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.FIND_ALTERNATIVES) },
       { label: AiAction.CONTINUE_WRITING, icon: <ContinueIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.CONTINUE_WRITING) },
+      {
+        label: 'Mark as Heading',
+        icon: <svg className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h8m-8 6h16" />
+        </svg>,
+        subMenu: [
+          { label: 'Heading 1 (Largest)', icon: <span className="h-5 w-5 mr-3 font-bold text-lg">H1</span>, action: () => onAction('MARK_HEADING_1' as any) },
+          { label: 'Heading 2', icon: <span className="h-5 w-5 mr-3 font-bold">H2</span>, action: () => onAction('MARK_HEADING_2' as any) },
+          { label: 'Heading 3', icon: <span className="h-5 w-5 mr-3 font-semibold text-sm">H3</span>, action: () => onAction('MARK_HEADING_3' as any) },
+          { label: 'Heading 4', icon: <span className="h-5 w-5 mr-3 text-sm">H4</span>, action: () => onAction('MARK_HEADING_4' as any) },
+        ]
+      },
       { label: 'Custom Prompt...', icon: <SparklesIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.CUSTOM_PROMPT) },
     ],
     image: [
@@ -330,6 +342,17 @@ export const NoteEditor = forwardRef<NoteEditorHandles, NoteEditorProps>(({ cont
             setIsPromptModalOpen(true);
         }
         return;
+    }
+    
+    // Handle marking as heading
+    if (action === AiAction.MARK_HEADING_1 || action === AiAction.MARK_HEADING_2 || 
+        action === AiAction.MARK_HEADING_3 || action === AiAction.MARK_HEADING_4) {
+      const level = parseInt(action.slice(-1)); // Extract level from action name
+      if (editorRef.current) {
+        const { markAsHeading } = await import('../utils/tocUtils');
+        markAsHeading(editorRef.current, level);
+      }
+      return;
     }
 
     const dataUrlToImageObject = (dataUrl: string): { mimeType: string; data: string } | null => {

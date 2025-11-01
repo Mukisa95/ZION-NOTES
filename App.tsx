@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { NoteEditor } from './components/NoteEditor';
 import { ChatWindow } from './components/ChatSidebar';
-import { SparklesIcon, BoldIcon, ItalicIcon, TrashIcon, BrainIcon, TextColorIcon, AlignLeftIcon, AlignCenterIcon, AlignRightIcon, AlignJustifyIcon, SuperscriptIcon, SubscriptIcon, SearchIcon, ExportIcon, PdfIcon, WordIcon, UploadIcon, SettingsIcon, BulletListIcon, NumberListIcon, ChevronDownIcon, SaveIcon, FolderIcon, DocumentIcon, CloudIcon, HomeIcon, UndoIcon, RedoIcon } from './components/icons';
+import { SparklesIcon, BoldIcon, ItalicIcon, TrashIcon, BrainIcon, TextColorIcon, AlignLeftIcon, AlignCenterIcon, AlignRightIcon, AlignJustifyIcon, SuperscriptIcon, SubscriptIcon, SearchIcon, ExportIcon, PdfIcon, WordIcon, UploadIcon, SettingsIcon, BulletListIcon, NumberListIcon, ChevronDownIcon, SaveIcon, FolderIcon, DocumentIcon, CloudIcon, HomeIcon, UndoIcon, RedoIcon, TocIcon } from './components/icons';
 import { ListStylePicker } from './components/ListStylePicker';
 import { AlignmentPicker } from './components/AlignmentPicker';
 import { markdownToHtml } from './utils/markdown';
@@ -19,6 +19,7 @@ import { DocumentLandingPage } from './components/DocumentLandingPage';
 import { WareViewModal } from './components/WareViewModal';
 import { CompressionDialog } from './components/CompressionDialog';
 import { CompressionIndicator } from './components/CompressionIndicator';
+import { TableOfContents } from './components/TableOfContents';
 import { useAuth } from './contexts/AuthContext';
 import { saveDocument, updateDocument, getCurrentDocumentId, setCurrentDocumentId, SavedDocument } from './services/documentStorage';
 import { Ware, deleteWare } from './services/wareStorage';
@@ -53,7 +54,8 @@ const FormattingToolbar: React.FC<{
   onOpenSelectionMenu?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
-}> = ({ onFormat, onClear, onInsertList, onOpenSelectionMenu, onUndo, onRedo }) => {
+  onOpenToc?: () => void;
+}> = ({ onFormat, onClear, onInsertList, onOpenSelectionMenu, onUndo, onRedo, onOpenToc }) => {
     const colorInputRef = useRef<HTMLInputElement>(null);
     const fontFamilyRef = useRef<HTMLSelectElement>(null);
     const fontSizeRef = useRef<HTMLSelectElement>(null);
@@ -452,6 +454,7 @@ const App: React.FC = () => {
   const [selectedWare, setSelectedWare] = useState<Ware | null>(null);
   const [isCompressionDialogOpen, setIsCompressionDialogOpen] = useState(false);
   const [compressionDialogData, setCompressionDialogData] = useState<{ name: string; content: string } | null>(null);
+  const [isTocOpen, setIsTocOpen] = useState(false);
 
   // Get active tab
   const activeTab = activeTabId ? openTabs.find(tab => tab.id === activeTabId) : null;
@@ -1400,6 +1403,7 @@ const App: React.FC = () => {
               }}
               onUndo={handleUndo}
               onRedo={handleRedo}
+              onOpenToc={() => setIsTocOpen(true)}
             />
           </div>
         </header>
@@ -1540,6 +1544,13 @@ const App: React.FC = () => {
           maxSize={900000}
         />
       )}
+
+      <TableOfContents
+        isOpen={isTocOpen}
+        onClose={() => setIsTocOpen(false)}
+        editorRef={editorRef as any}
+        scrollContainerRef={mainContainerRef}
+      />
 
       <DocumentLibrary
         isOpen={isDocumentLibraryOpen}
