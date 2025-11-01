@@ -516,38 +516,34 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                         )}
                     </div>
                 ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                        {filteredDocuments.map((doc, index) => (
+                    <div className="space-y-1.5">
+                        {filteredDocuments.map((doc) => (
                             <div
                                 key={doc.id}
                                 onClick={() => onOpenDocument(doc)}
-                                className="group relative p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-md transition-all duration-200 cursor-pointer"
+                                className="group relative flex items-center gap-3 p-2.5 sm:p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-sm transition-all duration-200 cursor-pointer"
                             >
-                                <div className="flex flex-col items-center gap-2">
-                                    <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                                        <DocumentIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                                    </div>
-                                    <div className="flex-1 min-w-0 w-full text-center">
-                                        <h3 className="font-medium text-gray-900 dark:text-white mb-0.5 truncate text-xs">
-                                            {doc.name}
-                                        </h3>
-                                        <div className="flex items-center justify-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                                            <span>{doc.wordCount}w</span>
-                                            <span>•</span>
-                                            <span className="truncate">{formatDate(doc.lastModified || doc.updatedAt || 0)}</span>
-                                        </div>
+                                <div className="p-1.5 sm:p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex-shrink-0">
+                                    <DocumentIcon className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600 dark:text-blue-400" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="font-medium text-gray-900 dark:text-white mb-0.5 truncate text-sm sm:text-base">
+                                        {doc.name}
+                                    </h3>
+                                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                        <span>{doc.wordCount}w</span>
+                                        <span>•</span>
+                                        <span className="truncate">{formatDate(doc.lastModified || doc.updatedAt || 0)}</span>
                                     </div>
                                 </div>
                                 
-                                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button
-                                        onClick={(e) => handleDelete(doc.id, e)}
-                                        className="p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all"
-                                        title="Delete document"
-                                    >
-                                        <TrashIcon className="h-3 w-3" />
-                                    </button>
-                                </div>
+                                <button
+                                    onClick={(e) => handleDelete(doc.id, e)}
+                                    className="p-1.5 sm:p-2 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all flex-shrink-0 opacity-0 group-hover:opacity-100"
+                                    title="Delete document"
+                                >
+                                    <TrashIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                </button>
                             </div>
                         ))}
                     </div>

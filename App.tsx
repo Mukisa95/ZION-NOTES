@@ -1521,6 +1521,9 @@ const App: React.FC = () => {
               throw error;
             }
           }}
+          onAddDocuments={() => {
+            setIsAddDocumentsModalOpen(true);
+          }}
           userId={user?.uid}
           incognitoMode={incognitoMode}
         />
