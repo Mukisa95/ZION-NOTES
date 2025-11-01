@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PlusIcon, DocumentIcon, TrashIcon, SearchIcon, CloudIcon, SettingsIcon, FolderIcon } from './icons';
+import { PlusIcon, DocumentIcon, TrashIcon, SearchIcon, CloudIcon, SettingsIcon, FolderIcon, CheckIcon, EditIcon } from './icons';
 import { SavedDocument, getAllDocuments, saveDocument } from '../services/documentStorage';
 import { getAllDocumentsFromFirestore, deleteDocumentFromFirestore, saveDocumentToFirestore } from '../services/firestoreService';
 import { UserProfile } from './UserProfile';
@@ -42,6 +42,12 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
     const [isAddDocumentsModalOpen, setIsAddDocumentsModalOpen] = useState(false);
     const [isWareViewModalOpen, setIsWareViewModalOpen] = useState(false);
     const [selectedWare, setSelectedWare] = useState<Ware | null>(null);
+    const [selectionMode, setSelectionMode] = useState(false);
+    const [selectedWareIds, setSelectedWareIds] = useState<string[]>([]);
+    const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
+    const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+    const [renameTarget, setRenameTarget] = useState<{ type: 'ware' | 'document', id: string, currentName: string } | null>(null);
+    const [moveToWareDialogOpen, setMoveToWareDialogOpen] = useState(false);
 
     useEffect(() => {
         loadDocuments();
@@ -255,6 +261,124 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
         setIsWareViewModalOpen(true);
     };
 
+    const handleToggleWareSelection = (wareId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setSelectedWareIds(prev => 
+            prev.includes(wareId) ? prev.filter(id => id !== wareId) : [...prev, wareId]
+        );
+    };
+
+    const handleToggleDocSelection = (docId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setSelectedDocIds(prev => 
+            prev.includes(docId) ? prev.filter(id => id !== docId) : [...prev, docId]
+        );
+    };
+
+    const handleRenameWare = async (newName: string) => {
+        if (!renameTarget || renameTarget.type !== 'ware') return;
+        
+        try {
+            if (userId && !incognitoMode) {
+                await updateWareInFirestore(userId, renameTarget.id, { name: newName });
+            } else {
+                await updateWare(renameTarget.id, { name: newName });
+            }
+            await loadWares();
+            setRenameDialogOpen(false);
+            setRenameTarget(null);
+        } catch (error) {
+            console.error('Error renaming WARE:', error);
+            alert('Failed to rename WARE');
+        }
+    };
+
+    const handleRenameDocument = async (newName: string) => {
+        if (!renameTarget || renameTarget.type !== 'document') return;
+        
+        try {
+            const doc = documents.find(d => d.id === renameTarget.id);
+            if (!doc) return;
+            
+            const updatedDoc = { ...doc, name: newName };
+            if (userId && !incognitoMode) {
+                await saveDocumentToFirestore(userId, updatedDoc);
+            } else {
+                await saveDocument(updatedDoc);
+            }
+            await loadDocuments();
+            setRenameDialogOpen(false);
+            setRenameTarget(null);
+        } catch (error) {
+            console.error('Error renaming document:', error);
+            alert('Failed to rename document');
+        }
+    };
+
+    const handleMoveDocumentsToWare = async (targetWareId: string) => {
+        try {
+            const targetWare = wares.find(w => w.id === targetWareId);
+            if (!targetWare) return;
+            
+            const updatedDocIds = [...new Set([...targetWare.documentIds, ...selectedDocIds])];
+            
+            if (userId && !incognitoMode) {
+                await updateWareInFirestore(userId, targetWareId, { documentIds: updatedDocIds });
+            } else {
+                await updateWare(targetWareId, { documentIds: updatedDocIds });
+            }
+            
+            setSelectedDocIds([]);
+            setMoveToWareDialogOpen(false);
+            await loadWares();
+            await loadDocuments();
+        } catch (error) {
+            console.error('Error moving documents:', error);
+            alert('Failed to move documents');
+        }
+    };
+
+    const handleBulkDeleteWares = async () => {
+        if (selectedWareIds.length === 0) return;
+        if (!confirm(`Delete ${selectedWareIds.length} WARE(s)? This will keep all documents.`)) return;
+        
+        try {
+            for (const wareId of selectedWareIds) {
+                if (userId && !incognitoMode) {
+                    await deleteWareFromFirestore(userId, wareId);
+                } else {
+                    await deleteWare(wareId);
+                }
+            }
+            setSelectedWareIds([]);
+            await loadWares();
+        } catch (error) {
+            console.error('Error deleting WARES:', error);
+            alert('Failed to delete WARES');
+        }
+    };
+
+    const handleBulkDeleteDocuments = async () => {
+        if (selectedDocIds.length === 0) return;
+        if (!confirm(`Delete ${selectedDocIds.length} document(s)? This action cannot be undone.`)) return;
+        
+        try {
+            for (const docId of selectedDocIds) {
+                if (userId && !incognitoMode) {
+                    await deleteDocumentFromFirestore(userId, docId);
+                } else {
+                    const { deleteDocument } = await import('../services/documentStorage');
+                    await deleteDocument(docId);
+                }
+            }
+            setSelectedDocIds([]);
+            await loadDocuments();
+        } catch (error) {
+            console.error('Error deleting documents:', error);
+            alert('Failed to delete documents');
+        }
+    };
+
     const handleDelete = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
         if (confirm('Are you sure you want to delete this document?')) {
@@ -322,12 +446,6 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                             {user ? (
                                 <>
                                     <UserProfile onOpenSettings={() => setIsSettingsOpen(true)} />
-                                    {incognitoMode && (
-                                        <div className="flex items-center gap-1 px-2 py-1 bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-md text-xs font-medium">
-                                            <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                                            <span className="hidden sm:inline">Incognito</span>
-                                        </div>
-                                    )}
                                 </>
                             ) : (
                                 <>
@@ -349,21 +467,131 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                                 </>
                             )}
                             
-                            <button
-                                onClick={() => setIsCreateWareModalOpen(true)}
-                                className="p-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
-                                title="New WARE"
-                            >
-                                <FolderIcon className="h-5 w-5" />
-                            </button>
-                            
-                            <button
-                                onClick={onCreateNew}
-                                className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
-                                title="New Document"
-                            >
-                                <PlusIcon className="h-5 w-5" />
-                            </button>
+                            {!selectionMode ? (
+                                <>
+                                    <button
+                                        onClick={() => setSelectionMode(true)}
+                                        className="p-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+                                        title="Select Items"
+                                    >
+                                        <CheckIcon className="h-5 w-5" />
+                                    </button>
+                                    
+                                    <button
+                                        onClick={() => setIsCreateWareModalOpen(true)}
+                                        className="p-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+                                        title="New WARE"
+                                    >
+                                        <FolderIcon className="h-5 w-5" />
+                                    </button>
+                                    
+                                    <button
+                                        onClick={onCreateNew}
+                                        className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+                                        title="New Document"
+                                    >
+                                        <PlusIcon className="h-5 w-5" />
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={() => {
+                                            setSelectionMode(false);
+                                            setSelectedWareIds([]);
+                                            setSelectedDocIds([]);
+                                        }}
+                                        className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 text-sm font-semibold"
+                                    >
+                                        Cancel
+                                    </button>
+                                    
+                                    {/* WARE Selection Actions */}
+                                    {selectedWareIds.length === 1 && (
+                                        <>
+                                            <button
+                                                onClick={() => {
+                                                    const ware = wares.find(w => w.id === selectedWareIds[0]);
+                                                    if (ware) {
+                                                        setRenameTarget({ type: 'ware', id: ware.id, currentName: ware.name });
+                                                        setRenameDialogOpen(true);
+                                                    }
+                                                }}
+                                                className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all"
+                                                title="Rename WARE"
+                                            >
+                                                <EditIcon className="h-5 w-5" />
+                                            </button>
+                                            <button
+                                                onClick={handleBulkDeleteWares}
+                                                className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all"
+                                                title="Delete WARE"
+                                            >
+                                                <TrashIcon className="h-5 w-5" />
+                                            </button>
+                                        </>
+                                    )}
+                                    
+                                    {selectedWareIds.length > 1 && (
+                                        <button
+                                            onClick={handleBulkDeleteWares}
+                                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all text-sm font-semibold"
+                                        >
+                                            Delete {selectedWareIds.length} WARES
+                                        </button>
+                                    )}
+                                    
+                                    {/* Document Selection Actions */}
+                                    {selectedDocIds.length === 1 && selectedWareIds.length === 0 && (
+                                        <>
+                                            <button
+                                                onClick={() => {
+                                                    const doc = documents.find(d => d.id === selectedDocIds[0]);
+                                                    if (doc) {
+                                                        setRenameTarget({ type: 'document', id: doc.id, currentName: doc.name });
+                                                        setRenameDialogOpen(true);
+                                                    }
+                                                }}
+                                                className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all"
+                                                title="Rename Document"
+                                            >
+                                                <EditIcon className="h-5 w-5" />
+                                            </button>
+                                            <button
+                                                onClick={() => setMoveToWareDialogOpen(true)}
+                                                className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all"
+                                                title="Move to WARE"
+                                            >
+                                                <FolderIcon className="h-5 w-5" />
+                                            </button>
+                                            <button
+                                                onClick={handleBulkDeleteDocuments}
+                                                className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all"
+                                                title="Delete Document"
+                                            >
+                                                <TrashIcon className="h-5 w-5" />
+                                            </button>
+                                        </>
+                                    )}
+                                    
+                                    {selectedDocIds.length > 1 && selectedWareIds.length === 0 && (
+                                        <>
+                                            <button
+                                                onClick={() => setMoveToWareDialogOpen(true)}
+                                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all text-sm font-semibold"
+                                            >
+                                                Move {selectedDocIds.length} to WARE
+                                            </button>
+                                            <button
+                                                onClick={handleBulkDeleteDocuments}
+                                                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all text-sm font-semibold"
+                                            >
+                                                Delete {selectedDocIds.length} Docs
+                                            </button>
+                                        </>
+                                    )}
+                                </>
+                            )}
                         </div>
                     </div>
 
@@ -391,24 +619,46 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                             {wares.map((ware, index) => {
                                 const colorStyle = getWareColorStyle(ware.color);
                                 const isDark = document.documentElement.classList.contains('dark');
+                                const isSelected = selectedWareIds.includes(ware.id);
                                 
                                 return (
                                     <div
                                         key={ware.id}
-                                        onClick={() => handleOpenWare(ware)}
-                                        className="group flex flex-col items-center gap-2 cursor-pointer transition-transform duration-200 hover:scale-105"
+                                        onClick={(e) => {
+                                            if (selectionMode) {
+                                                handleToggleWareSelection(ware.id, e);
+                                            } else {
+                                                handleOpenWare(ware);
+                                            }
+                                        }}
+                                        className={`group flex flex-col items-center gap-2 cursor-pointer transition-transform duration-200 hover:scale-105 ${
+                                            isSelected ? 'ring-2 ring-blue-500 rounded-lg p-1' : ''
+                                        }`}
                                         style={{
                                             width: '90px'
                                         }}
                                     >
                                         <div className="relative">
+                                            {selectionMode && (
+                                                <div 
+                                                    className={`absolute -top-2 -left-2 w-5 h-5 rounded border-2 flex items-center justify-center z-10 ${
+                                                        isSelected 
+                                                            ? 'border-blue-500 bg-blue-500' 
+                                                            : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
+                                                    }`}
+                                                >
+                                                    {isSelected && (
+                                                        <CheckIcon className="h-3 w-3 text-white" />
+                                                    )}
+                                                </div>
+                                            )}
                                             <FolderIcon 
                                                 className="h-12 w-12 transition-all duration-200"
                                                 style={{
                                                     color: isDark ? colorStyle.iconColorDark : colorStyle.iconColor
                                                 }}
                                             />
-                                            {ware.documentIds.length > 0 && (
+                                            {ware.documentIds.length > 0 && !selectionMode && (
                                                 <div 
                                                     className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold"
                                                     style={{
@@ -475,28 +725,54 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                     </div>
                 ) : (
                     <div className="space-y-1.5">
-                        {filteredDocuments.map((doc) => (
-                            <div
-                                key={doc.id}
-                                onClick={() => onOpenDocument(doc)}
-                                className="group relative flex items-center gap-2 py-1.5 px-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded transition-all duration-200 cursor-pointer"
-                            >
-                                <DocumentIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                    <h3 className="font-normal text-gray-900 dark:text-white truncate text-sm">
-                                        {doc.name}
-                                    </h3>
-                                </div>
-                                
-                                <button
-                                    onClick={(e) => handleDelete(doc.id, e)}
-                                    className="p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all flex-shrink-0 opacity-0 group-hover:opacity-100"
-                                    title="Delete document"
+                        {filteredDocuments.map((doc) => {
+                            const isSelected = selectedDocIds.includes(doc.id);
+                            return (
+                                <div
+                                    key={doc.id}
+                                    onClick={(e) => {
+                                        if (selectionMode) {
+                                            handleToggleDocSelection(doc.id, e);
+                                        } else {
+                                            onOpenDocument(doc);
+                                        }
+                                    }}
+                                    className={`group relative flex items-center gap-2 py-1.5 px-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded transition-all duration-200 cursor-pointer ${
+                                        isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                                    }`}
                                 >
-                                    <TrashIcon className="h-4 w-4" />
-                                </button>
-                            </div>
-                        ))}
+                                    {selectionMode && (
+                                        <div 
+                                            className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                                                isSelected 
+                                                    ? 'border-blue-500 bg-blue-500' 
+                                                    : 'border-gray-300 dark:border-gray-600'
+                                            }`}
+                                        >
+                                            {isSelected && (
+                                                <CheckIcon className="h-3 w-3 text-white" />
+                                            )}
+                                        </div>
+                                    )}
+                                    <DocumentIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="font-normal text-gray-900 dark:text-white truncate text-sm">
+                                            {doc.name}
+                                        </h3>
+                                    </div>
+                                    
+                                    {!selectionMode && (
+                                        <button
+                                            onClick={(e) => handleDelete(doc.id, e)}
+                                            className="p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all flex-shrink-0 opacity-0 group-hover:opacity-100"
+                                            title="Delete document"
+                                        >
+                                            <TrashIcon className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
                 </div>
@@ -513,6 +789,100 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                 onClose={() => setIsSettingsOpen(false)}
             />
 
+            {/* Rename Dialog */}
+            {renameDialogOpen && renameTarget && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-md p-6">
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                            Rename {renameTarget.type === 'ware' ? 'WARE' : 'Document'}
+                        </h2>
+                        <input
+                            type="text"
+                            defaultValue={renameTarget.currentName}
+                            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+                            id="rename-input"
+                            autoFocus
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    const newName = (e.target as HTMLInputElement).value.trim();
+                                    if (newName) {
+                                        if (renameTarget.type === 'ware') {
+                                            handleRenameWare(newName);
+                                        } else {
+                                            handleRenameDocument(newName);
+                                        }
+                                    }
+                                }
+                            }}
+                        />
+                        <div className="flex gap-2 justify-end">
+                            <button
+                                onClick={() => {
+                                    setRenameDialogOpen(false);
+                                    setRenameTarget(null);
+                                }}
+                                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const input = document.getElementById('rename-input') as HTMLInputElement;
+                                    const newName = input?.value.trim();
+                                    if (newName) {
+                                        if (renameTarget.type === 'ware') {
+                                            handleRenameWare(newName);
+                                        } else {
+                                            handleRenameDocument(newName);
+                                        }
+                                    }
+                                }}
+                                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                            >
+                                Rename
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Move to WARE Dialog */}
+            {moveToWareDialogOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-md p-6">
+                        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                            Move to WARE
+                        </h2>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                            Select a WARE to move {selectedDocIds.length} document{selectedDocIds.length > 1 ? 's' : ''} to:
+                        </p>
+                        <div className="space-y-2 max-h-64 overflow-y-auto mb-4">
+                            {wares.map(ware => (
+                                <button
+                                    key={ware.id}
+                                    onClick={() => handleMoveDocumentsToWare(ware.id)}
+                                    className="w-full p-3 text-left rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <FolderIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                                        <span className="font-medium text-gray-900 dark:text-white">{ware.name}</span>
+                                        <span className="text-xs text-gray-500 dark:text-gray-400">({ware.documentIds.length} docs)</span>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                            <button
+                                onClick={() => setMoveToWareDialogOpen(false)}
+                                className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* WARE Modals */}
             <CreateWareModal
                 isOpen={isCreateWareModalOpen}
@@ -524,7 +894,7 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                 isOpen={isAddDocumentsModalOpen}
                 onClose={() => {
                     setIsAddDocumentsModalOpen(false);
-                    setSelectedWare(null);
+                    // Don't set selectedWare to null - keep WARE modal open
                 }}
                 wareId={selectedWare?.id || ''}
                 existingDocumentIds={selectedWare?.documentIds || []}
