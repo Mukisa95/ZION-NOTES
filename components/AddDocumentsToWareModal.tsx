@@ -107,7 +107,7 @@ export const AddDocumentsToWareModal: React.FC<AddDocumentsToWareModalProps> = (
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4" data-modal>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-4" data-modal>
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-2xl max-h-[90vh] flex flex-col">
                 <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700/50">
                     <h2 className="text-xl font-bold text-gray-900 dark:text-white">Add Documents to WARE</h2>
