@@ -504,16 +504,6 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                                 </>
                             )}
                             
-                            {!selectionMode ? (
-                                <>
-                                    <button
-                                        onClick={() => setSelectionMode(true)}
-                                        className="p-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
-                                        title="Select Items"
-                                    >
-                                        <CheckIcon className="h-5 w-5" />
-                                    </button>
-                                    
                             <button
                                 onClick={() => setIsCreateWareModalOpen(true)}
                                 className="p-3 bg-gradient-to-br from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 active:scale-95 icon-glossy"
@@ -529,106 +519,6 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                             >
                                 <PlusIcon className="h-5 w-5" />
                             </button>
-                                </>
-                            ) : (
-                                <>
-                                    <button
-                                        onClick={() => {
-                                            setSelectionMode(false);
-                                            setSelectedWareIds([]);
-                                            setSelectedDocIds([]);
-                                        }}
-                                        className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 text-sm font-semibold"
-                                    >
-                                        Cancel
-                                    </button>
-                                    
-                                    {/* WARE Selection Actions */}
-                                    {selectedWareIds.length === 1 && (
-                                        <>
-                                            <button
-                                                onClick={() => {
-                                                    const ware = wares.find(w => w.id === selectedWareIds[0]);
-                                                    if (ware) {
-                                                        setRenameTarget({ type: 'ware', id: ware.id, currentName: ware.name });
-                                                        setRenameDialogOpen(true);
-                                                    }
-                                                }}
-                                                className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all"
-                                                title="Rename WARE"
-                                            >
-                                                <EditIcon className="h-5 w-5" />
-                                            </button>
-                                            <button
-                                                onClick={handleBulkDeleteWares}
-                                                className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all"
-                                                title="Delete WARE"
-                                            >
-                                                <TrashIcon className="h-5 w-5" />
-                                            </button>
-                                        </>
-                                    )}
-                                    
-                                    {selectedWareIds.length > 1 && (
-                                        <button
-                                            onClick={handleBulkDeleteWares}
-                                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all text-sm font-semibold"
-                                        >
-                                            Delete {selectedWareIds.length} WARES
-                                        </button>
-                                    )}
-                                    
-                                    {/* Document Selection Actions */}
-                                    {selectedDocIds.length === 1 && selectedWareIds.length === 0 && (
-                                        <>
-                                            <button
-                                                onClick={() => {
-                                                    const doc = documents.find(d => d.id === selectedDocIds[0]);
-                                                    if (doc) {
-                                                        setRenameTarget({ type: 'document', id: doc.id, currentName: doc.name });
-                                                        setRenameDialogOpen(true);
-                                                    }
-                                                }}
-                                                className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all"
-                                                title="Rename Document"
-                                            >
-                                                <EditIcon className="h-5 w-5" />
-                                            </button>
-                                            <button
-                                                onClick={() => setMoveToWareDialogOpen(true)}
-                                                className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all"
-                                                title="Move to WARE"
-                                            >
-                                                <FolderIcon className="h-5 w-5" />
-                                            </button>
-                                            <button
-                                                onClick={handleBulkDeleteDocuments}
-                                                className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all"
-                                                title="Delete Document"
-                                            >
-                                                <TrashIcon className="h-5 w-5" />
-                                            </button>
-                                        </>
-                                    )}
-                                    
-                                    {selectedDocIds.length > 1 && selectedWareIds.length === 0 && (
-                                        <>
-                                            <button
-                                                onClick={() => setMoveToWareDialogOpen(true)}
-                                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all text-sm font-semibold"
-                                            >
-                                                Move {selectedDocIds.length} to WARE
-                                            </button>
-                                            <button
-                                                onClick={handleBulkDeleteDocuments}
-                                                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all text-sm font-semibold"
-                                            >
-                                                Delete {selectedDocIds.length} Docs
-                                            </button>
-                                        </>
-                                    )}
-                                </>
-                            )}
                         </div>
                     </div>
 
