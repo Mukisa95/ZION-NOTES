@@ -48,14 +48,18 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
     const [renameDialogOpen, setRenameDialogOpen] = useState(false);
     const [renameTarget, setRenameTarget] = useState<{ type: 'ware' | 'document', id: string, currentName: string } | null>(null);
     const [moveToWareDialogOpen, setMoveToWareDialogOpen] = useState(false);
+    const [filteredWares, setFilteredWares] = useState<Ware[]>([]);
+    const [wareMatchedDocs, setWareMatchedDocs] = useState<Record<string, SavedDocument[]>>({});
 
     useEffect(() => {
         loadDocuments();
         loadWares();
     }, [userId, incognitoMode]);
 
-    // Filter documents based on search query
+    // Filter documents and WARES based on search query
     useEffect(() => {
+        const query = searchQuery.toLowerCase().trim();
+        
         // Get all document IDs that are in any WARE
         const wareDocumentIds = new Set<string>();
         wares.forEach(ware => {
@@ -67,14 +71,47 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
             !wareDocumentIds.has(doc.id)
         );
         
-        if (!searchQuery.trim()) {
+        if (!query) {
+            // No search - show all
             setFilteredDocuments(documentsNotInWares);
+            setFilteredWares(wares);
+            setWareMatchedDocs({});
         } else {
-            const filtered = documentsNotInWares.filter(doc =>
-                doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                doc.content.toLowerCase().includes(searchQuery.toLowerCase())
+            // Search independent documents (character-based search)
+            const matchedIndependentDocs = documentsNotInWares.filter(doc =>
+                doc.name.toLowerCase().includes(query)
             );
-            setFilteredDocuments(filtered);
+            setFilteredDocuments(matchedIndependentDocs);
+            
+            // Search WARES and documents within WARES
+            const matchedWares: Ware[] = [];
+            const wareDocsMap: Record<string, SavedDocument[]> = {};
+            
+            wares.forEach(ware => {
+                // Check if WARE name matches
+                const wareNameMatches = ware.name.toLowerCase().includes(query);
+                
+                // Check if any documents in this WARE match
+                const matchingDocsInWare = documents.filter(doc => 
+                    ware.documentIds.includes(doc.id) && 
+                    doc.name.toLowerCase().includes(query)
+                );
+                
+                // Include WARE if either the WARE name matches or it contains matching documents
+                if (wareNameMatches || matchingDocsInWare.length > 0) {
+                    matchedWares.push(ware);
+                    
+                    // If WARE name matches, show all documents; otherwise show only matched documents
+                    if (wareNameMatches) {
+                        wareDocsMap[ware.id] = documents.filter(doc => ware.documentIds.includes(doc.id));
+                    } else {
+                        wareDocsMap[ware.id] = matchingDocsInWare;
+                    }
+                }
+            });
+            
+            setFilteredWares(matchedWares);
+            setWareMatchedDocs(wareDocsMap);
         }
     }, [searchQuery, documents, wares]);
 
@@ -612,73 +649,143 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
             {/* Content */}
             <div className="flex-1 overflow-y-auto max-w-6xl w-full mx-auto px-6 py-8">
                 {/* WARES Section */}
-                {wares.length > 0 && (
+                {filteredWares.length > 0 && (
                     <div className="mb-8">
-                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">WARES</h2>
-                        <div className="flex flex-wrap gap-4 sm:gap-6">
-                            {wares.map((ware, index) => {
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+                            WARES {searchQuery && `(${filteredWares.length} matching)`}
+                        </h2>
+                        <div className={searchQuery ? 'space-y-4' : 'flex flex-wrap gap-4 sm:gap-6'}>
+                            {filteredWares.map((ware, index) => {
                                 const colorStyle = getWareColorStyle(ware.color);
                                 const isDark = document.documentElement.classList.contains('dark');
                                 const isSelected = selectedWareIds.includes(ware.id);
+                                const matchedDocs = wareMatchedDocs[ware.id] || [];
+                                const hasSearchResults = searchQuery && matchedDocs.length > 0;
                                 
-                                return (
-                                    <div
-                                        key={ware.id}
-                                        onClick={(e) => {
-                                            if (selectionMode) {
-                                                handleToggleWareSelection(ware.id, e);
-                                            } else {
-                                                handleOpenWare(ware);
-                                            }
-                                        }}
-                                        className={`group flex flex-col items-center gap-2 cursor-pointer transition-transform duration-200 hover:scale-105 ${
-                                            isSelected ? 'ring-2 ring-blue-500 rounded-lg p-1' : ''
-                                        }`}
-                                        style={{
-                                            width: '90px'
-                                        }}
-                                    >
-                                        <div className="relative">
-                                            {selectionMode && (
-                                                <div 
-                                                    className={`absolute -top-2 -left-2 w-5 h-5 rounded border-2 flex items-center justify-center z-10 ${
-                                                        isSelected 
-                                                            ? 'border-blue-500 bg-blue-500' 
-                                                            : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
-                                                    }`}
-                                                >
-                                                    {isSelected && (
-                                                        <CheckIcon className="h-3 w-3 text-white" />
-                                                    )}
-                                                </div>
-                                            )}
-                                            <FolderIcon 
-                                                className="h-12 w-12 transition-all duration-200"
-                                                style={{
-                                                    color: isDark ? colorStyle.iconColorDark : colorStyle.iconColor
+                                if (hasSearchResults) {
+                                    // Hierarchical view for search results
+                                    return (
+                                        <div key={ware.id} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                                            {/* WARE Header */}
+                                            <div 
+                                                onClick={(e) => {
+                                                    if (selectionMode) {
+                                                        handleToggleWareSelection(ware.id, e);
+                                                    } else {
+                                                        handleOpenWare(ware);
+                                                    }
                                                 }}
-                                            />
-                                            {ware.documentIds.length > 0 && !selectionMode && (
-                                                <div 
-                                                    className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                                                className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                            >
+                                                {selectionMode && (
+                                                    <div 
+                                                        className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                                                            isSelected 
+                                                                ? 'border-blue-500 bg-blue-500' 
+                                                                : 'border-gray-300 dark:border-gray-600'
+                                                        }`}
+                                                    >
+                                                        {isSelected && (
+                                                            <CheckIcon className="h-3 w-3 text-white" />
+                                                        )}
+                                                    </div>
+                                                )}
+                                                <FolderIcon 
+                                                    className="h-6 w-6 flex-shrink-0"
                                                     style={{
-                                                        backgroundColor: isDark ? colorStyle.iconColorDark : colorStyle.iconColor
+                                                        color: isDark ? colorStyle.iconColorDark : colorStyle.iconColor
                                                     }}
-                                                >
-                                                    {ware.documentIds.length}
+                                                />
+                                                <div className="flex-1 min-w-0">
+                                                    <h3 className="font-semibold text-gray-900 dark:text-white text-sm truncate">
+                                                        {ware.name}
+                                                    </h3>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                        {matchedDocs.length} matching document{matchedDocs.length !== 1 ? 's' : ''}
+                                                    </p>
                                                 </div>
-                                            )}
+                                            </div>
+                                            
+                                            {/* Matched Documents in WARE */}
+                                            <div className="bg-white dark:bg-gray-900 pl-6">
+                                                {matchedDocs.map(doc => (
+                                                    <div
+                                                        key={doc.id}
+                                                        onClick={() => onOpenDocument(doc)}
+                                                        className="flex items-center gap-2 py-2 px-3 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors border-l-2 border-gray-300 dark:border-gray-600"
+                                                    >
+                                                        <DocumentIcon className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                                                        <div className="flex-1 min-w-0">
+                                                            <h4 className="font-normal text-gray-900 dark:text-white truncate text-sm">
+                                                                {doc.name}
+                                                            </h4>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                        <div className="text-center w-full">
-                                            <h3 className="font-medium text-gray-900 dark:text-white text-xs truncate px-1">
-                                                {ware.name}
-                                            </h3>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                {ware.documentIds.length} doc{ware.documentIds.length !== 1 ? 's' : ''}
-                                            </p>
+                                    );
+                                } else {
+                                    // No search or WARE name match only - show as icon
+                                    return (
+                                        <div
+                                            key={ware.id}
+                                            onClick={(e) => {
+                                                if (selectionMode) {
+                                                    handleToggleWareSelection(ware.id, e);
+                                                } else {
+                                                    handleOpenWare(ware);
+                                                }
+                                            }}
+                                            className={`group flex flex-col items-center gap-2 cursor-pointer transition-transform duration-200 hover:scale-105 ${
+                                                isSelected ? 'ring-2 ring-blue-500 rounded-lg p-1' : ''
+                                            }`}
+                                            style={{
+                                                width: '90px'
+                                            }}
+                                        >
+                                            <div className="relative">
+                                                {selectionMode && (
+                                                    <div 
+                                                        className={`absolute -top-2 -left-2 w-5 h-5 rounded border-2 flex items-center justify-center z-10 ${
+                                                            isSelected 
+                                                                ? 'border-blue-500 bg-blue-500' 
+                                                                : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
+                                                        }`}
+                                                    >
+                                                        {isSelected && (
+                                                            <CheckIcon className="h-3 w-3 text-white" />
+                                                        )}
+                                                    </div>
+                                                )}
+                                                <FolderIcon 
+                                                    className="h-12 w-12 transition-all duration-200"
+                                                    style={{
+                                                        color: isDark ? colorStyle.iconColorDark : colorStyle.iconColor
+                                                    }}
+                                                />
+                                                {ware.documentIds.length > 0 && !selectionMode && (
+                                                    <div 
+                                                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                                                        style={{
+                                                            backgroundColor: isDark ? colorStyle.iconColorDark : colorStyle.iconColor
+                                                        }}
+                                                    >
+                                                        {ware.documentIds.length}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="text-center w-full">
+                                                <h3 className="font-medium text-gray-900 dark:text-white text-xs truncate px-1">
+                                                    {ware.name}
+                                                </h3>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                    {ware.documentIds.length} doc{ware.documentIds.length !== 1 ? 's' : ''}
+                                                </p>
+                                            </div>
                                         </div>
-                                    </div>
-                                );
+                                    );
+                                }
                             })}
                         </div>
                     </div>
