@@ -57,18 +57,58 @@ const imageElementToDataUrl = (img: HTMLImageElement): Promise<string> => {
   });
 };
 
+// Helper function to calculate menu position with viewport boundary detection
+const calculateMenuPosition = (x: number, y: number, menuWidth: number = 240, menuHeight: number = 400) => {
+  const padding = 10; // Padding from viewport edges
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  
+  let adjustedX = x;
+  let adjustedY = y;
+  
+  // Check right boundary
+  if (x + menuWidth > viewportWidth - padding) {
+    adjustedX = viewportWidth - menuWidth - padding;
+  }
+  
+  // Check left boundary
+  if (adjustedX < padding) {
+    adjustedX = padding;
+  }
+  
+  // Check bottom boundary
+  if (y + menuHeight > viewportHeight - padding) {
+    adjustedY = viewportHeight - menuHeight - padding;
+  }
+  
+  // Check top boundary
+  if (adjustedY < padding) {
+    adjustedY = padding;
+  }
+  
+  return { x: adjustedX, y: adjustedY };
+};
+
 const ContextMenu: React.FC<{
   state: ContextMenuState;
   onAction: (action: AiAction, customPrompt?: string) => void;
   onClose: () => void;
 }> = ({ state, onAction, onClose }) => {
   const [activeSubMenu, setActiveSubMenu] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ x: state.x, y: state.y });
 
   useEffect(() => {
     if (!state.visible) {
       setActiveSubMenu(null);
+    } else {
+      // Calculate adjusted position when menu becomes visible
+      const menuWidth = 240; // w-56 sm:w-60 approximate width
+      const menuHeight = menuRef.current?.offsetHeight || 400;
+      const adjusted = calculateMenuPosition(state.x, state.y, menuWidth, menuHeight);
+      setPosition(adjusted);
     }
-  }, [state.visible]);
+  }, [state.visible, state.x, state.y]);
 
   if (!state.visible) return null;
 
@@ -145,7 +185,8 @@ const ContextMenu: React.FC<{
     <>
       <div className="fixed inset-0 z-40" onClick={onClose}></div>
       <div
-        style={{ top: state.y, left: state.x }}
+        ref={menuRef}
+        style={{ top: position.y, left: position.x }}
         className="fixed z-50 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 w-56 sm:w-60 animate-fade-in-fast max-h-[80vh] overflow-y-auto"
         data-context-menu="true"
       >
@@ -213,6 +254,7 @@ export const NoteEditor = forwardRef<NoteEditorHandles, NoteEditorProps>(({ cont
   const editorRef = useRef<HTMLDivElement>(null);
   const selectionRef = useRef<Range | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({ visible: false, x: 0, y: 0, type: 'general' });
+  const [selectionButton, setSelectionButton] = useState<{ visible: boolean; x: number; y: number }>({ visible: false, x: 0, y: 0 });
   const [isPromptModalOpen, setIsPromptModalOpen] = useState<boolean>(false);
   const [promptContext, setPromptContext] = useState<{ text: string, prefix: string }>({ text: '', prefix: '' });
   const [promptInitiator, setPromptInitiator] = useState<AiAction | null>(null);
@@ -490,10 +532,11 @@ ${selectedText}
 
     if (target.tagName === 'IMG' && (!selection || selection.isCollapsed)) {
         setSelectedElement(target);
+        const adjusted = calculateMenuPosition(e.clientX, e.clientY);
         setContextMenu({
             visible: true,
-            x: e.clientX,
-            y: e.clientY,
+            x: adjusted.x,
+            y: adjusted.y,
             type: 'image',
         });
         return;
@@ -505,40 +548,87 @@ ${selectedText}
       selectionRef.current = null;
     }
 
+    // For text selection, don't show menu automatically - button will do it
+    // Only show general menu on right-click in empty space
+    if (!selection || selection.isCollapsed) {
+      if (selection && selection.rangeCount > 0) {
+        selectionRef.current = selection.getRangeAt(0).cloneRange();
+      }
+      const adjusted = calculateMenuPosition(e.clientX, e.clientY);
+      setContextMenu({
+        visible: true,
+        x: adjusted.x,
+        y: adjusted.y,
+        type: 'general',
+      });
+    }
+  };
+
+  // Handle selection button click to show menu
+  const handleSelectionButtonClick = async () => {
+    const selection = window.getSelection();
+    
     if (selection && !selection.isCollapsed && selectionRef.current) {
       const fragment = selectionRef.current.cloneContents();
       const imagesInSelection = Array.from(fragment.querySelectorAll('img'));
       
       if (imagesInSelection.length > 0) {
         try {
-          // Asynchronously convert all found images to base64 data URLs
           const imagePromises = imagesInSelection.map(imageElementToDataUrl);
           const imgSrcs = await Promise.all(imagePromises);
           setContextSelectionImages(imgSrcs);
         } catch (error) {
           console.error("Error processing selected images for AI context:", error);
-          setContextSelectionImages([]); // Ensure it's reset on error
+          setContextSelectionImages([]);
         }
       }
 
+      const adjusted = calculateMenuPosition(selectionButton.x, selectionButton.y);
       setContextMenu({
         visible: true,
-        x: e.clientX,
-        y: e.clientY,
+        x: adjusted.x,
+        y: adjusted.y,
         type: 'selection',
       });
-    } else {
-      if (selection && selection.rangeCount > 0) {
-        selectionRef.current = selection.getRangeAt(0).cloneRange();
-      }
-      setContextMenu({
-        visible: true,
-        x: e.clientX,
-        y: e.clientY,
-        type: 'general',
-      });
+      setSelectionButton({ visible: false, x: 0, y: 0 });
     }
   };
+
+  // Detect text selection and show floating button
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const selection = window.getSelection();
+      
+      if (!editorRef.current || !selection || selection.rangeCount === 0) {
+        setSelectionButton({ visible: false, x: 0, y: 0 });
+        return;
+      }
+
+      // Check if selection is within our editor
+      const range = selection.getRangeAt(0);
+      if (!editorRef.current.contains(range.commonAncestorContainer)) {
+        setSelectionButton({ visible: false, x: 0, y: 0 });
+        return;
+      }
+
+      if (!selection.isCollapsed && selection.toString().trim().length > 0) {
+        // Save selection
+        selectionRef.current = range.cloneRange();
+        
+        // Calculate button position at end of selection
+        const rect = range.getBoundingClientRect();
+        const buttonX = rect.right + 5;
+        const buttonY = rect.bottom + 5;
+        
+        setSelectionButton({ visible: true, x: buttonX, y: buttonY });
+      } else {
+        setSelectionButton({ visible: false, x: 0, y: 0 });
+      }
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+  }, []);
 
   const handleFormat = (command: FormatType, value?: string) => {
     if (!editorRef.current) return;
@@ -800,6 +890,7 @@ ${selectedText}
   const closeContextMenu = useCallback(() => {
     setContextMenu(prev => ({ ...prev, visible: false }));
     setContextSelectionImages([]);
+    setSelectionButton({ visible: false, x: 0, y: 0 });
   }, []);
 
   useEffect(() => {
@@ -1265,6 +1356,22 @@ ${selectedText}
         )}
       </div>
       
+      
+      {/* Floating Selection Button */}
+      {selectionButton.visible && (
+        <button
+          onClick={handleSelectionButtonClick}
+          className="fixed z-50 p-2 bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-full shadow-2xl transition-all duration-200 transform hover:scale-110 active:scale-95 icon-glossy animate-fade-in-fast"
+          style={{
+            top: selectionButton.y,
+            left: selectionButton.x,
+          }}
+          title="AI Actions"
+          data-control-element="true"
+        >
+          <SparklesIcon className="h-5 w-5" />
+        </button>
+      )}
       
       <ContextMenu state={contextMenu} onAction={handleAiAction} onClose={closeContextMenu} />
       <PromptModal
