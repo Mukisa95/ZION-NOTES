@@ -16,6 +16,7 @@ import { AuthModal } from './components/AuthModal';
 import { UserProfile } from './components/UserProfile';
 import { DocumentLandingPage } from './components/DocumentLandingPage';
 import { WareViewModal } from './components/WareViewModal';
+import { CompressionDialog } from './components/CompressionDialog';
 import { useAuth } from './contexts/AuthContext';
 import { saveDocument, updateDocument, getCurrentDocumentId, setCurrentDocumentId, SavedDocument } from './services/documentStorage';
 import { Ware, deleteWare } from './services/wareStorage';
@@ -26,6 +27,7 @@ import { StatusToolbar } from './components/StatusToolbar';
 import { FindAndReplaceBar } from './components/FindAndReplaceBar';
 import { exportAsHtml, exportAsMarkdown, exportAsText, exportAsPdf, exportAsWord } from './utils/exportUtils';
 import { readDocxFile } from './services/docxService';
+import { getContentSize, CompressionMethod, decompressGzip } from './utils/compressionUtils';
 
 const useClickOutside = (ref: React.RefObject<HTMLElement>, callback: () => void) => {
     useEffect(() => {
@@ -480,6 +482,8 @@ const App: React.FC = () => {
   const [tabToClose, setTabToClose] = useState<string | null>(null);
   const [isWareViewModalOpen, setIsWareViewModalOpen] = useState(false);
   const [selectedWare, setSelectedWare] = useState<Ware | null>(null);
+  const [isCompressionDialogOpen, setIsCompressionDialogOpen] = useState(false);
+  const [compressionDialogData, setCompressionDialogData] = useState<{ name: string; content: string } | null>(null);
 
   // Get active tab
   const activeTab = activeTabId ? openTabs.find(tab => tab.id === activeTabId) : null;
@@ -863,76 +867,109 @@ const App: React.FC = () => {
       const activeTab = openTabs.find(tab => tab.id === activeTabId);
       if (!activeTab) return;
 
-      // Check if this tab already has a saved document ID
-      const isUpdate = activeTab.id.startsWith('doc_');
+      // Check document size for cloud saves
+      const MAX_SIZE = 900000; // 900KB safe limit
+      const contentSize = getContentSize(activeTab.content);
       
-      let savedDoc: SavedDocument;
-      
-      if (user && !incognitoMode) {
-        // Cloud sync mode - save to Firestore
-        console.log('Saving document to Firestore for user:', user.uid);
-        if (isUpdate) {
-          // Update existing document in Firestore
-          console.log('Updating existing document:', activeTab.id);
-          await updateDocumentInFirestore(user.uid, activeTab.id, {
-            name,
-            content: activeTab.content,
-            lastModified: Date.now(),
-            wordCount: getCountsFromHtml(activeTab.content).words
-          });
-          savedDoc = {
-            id: activeTab.id,
-            name,
-            content: activeTab.content,
-            lastModified: Date.now(),
-            wordCount: getCountsFromHtml(activeTab.content).words
-          };
-        } else {
-          // Create new document in Firestore
-          savedDoc = {
-            id: `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            name,
-            content: activeTab.content,
-            lastModified: Date.now(),
-            wordCount: getCountsFromHtml(activeTab.content).words
-          };
-          console.log('Creating new document:', savedDoc.id);
-          await saveDocumentToFirestore(user.uid, savedDoc);
-          console.log('Document saved to Firestore successfully');
-          setCurrentDocumentId(savedDoc.id);
-        }
-      } else {
-        // Local storage mode - save to IndexedDB
-        if (isUpdate) {
-          // Update existing document
-          savedDoc = await updateDocument(activeTab.id, name, activeTab.content);
-        } else {
-          // Create new document
-          savedDoc = await saveDocument(name, activeTab.content);
-          setCurrentDocumentId(savedDoc.id);
-        }
+      if (user && !incognitoMode && contentSize > MAX_SIZE) {
+        // Document too large for cloud - show compression dialog
+        setCompressionDialogData({ name, content: activeTab.content });
+        setIsCompressionDialogOpen(true);
+        setIsSaveDocumentDialogOpen(false);
+        return;
       }
 
-      // Update tab with saved document ID and name
-      setOpenTabs(prevTabs =>
-        prevTabs.map(tab =>
-          tab.id === activeTabId
-            ? { ...tab, id: savedDoc.id, name: savedDoc.name, isDirty: false }
-            : tab
-        )
-      );
-      
-      // Update active tab ID if it changed
-      if (!isUpdate) {
-        setActiveTabId(savedDoc.id);
-      }
-
-      const syncStatus = user && !incognitoMode ? ' to cloud' : ' locally';
-      alert(`Document "${name}" saved successfully${syncStatus}!`);
+      // Proceed with save
+      await performSave(name, activeTab.content);
     } catch (error) {
       console.error('Error saving document:', error);
       const syncStatus = user && !incognitoMode ? ' to cloud' : ' locally';
-      alert(`Failed to save document${syncStatus}. Please try again.`);
+      alert(`Failed to save document${syncStatus}. ${error instanceof Error ? error.message : 'Please try again.'}`);
+    }
+  };
+
+  const performSave = async (name: string, content: string) => {
+    const activeTab = openTabs.find(tab => tab.id === activeTabId);
+    if (!activeTab) return;
+
+    // Check if this tab already has a saved document ID
+    const isUpdate = activeTab.id.startsWith('doc_');
+    
+    let savedDoc: SavedDocument;
+    
+    if (user && !incognitoMode) {
+      // Cloud sync mode - save to Firestore
+      console.log('Saving document to Firestore for user:', user.uid);
+      if (isUpdate) {
+        // Update existing document in Firestore
+        console.log('Updating existing document:', activeTab.id);
+        await updateDocumentInFirestore(user.uid, activeTab.id, {
+          name,
+          content: content,
+          lastModified: Date.now(),
+          wordCount: getCountsFromHtml(content).words
+        });
+        savedDoc = {
+          id: activeTab.id,
+          name,
+          content: content,
+          lastModified: Date.now(),
+          wordCount: getCountsFromHtml(content).words
+        };
+      } else {
+        // Create new document in Firestore
+        savedDoc = {
+          id: `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          name,
+          content: content,
+          lastModified: Date.now(),
+          wordCount: getCountsFromHtml(content).words
+        };
+        console.log('Creating new document:', savedDoc.id);
+        await saveDocumentToFirestore(user.uid, savedDoc);
+        console.log('Document saved to Firestore successfully');
+        setCurrentDocumentId(savedDoc.id);
+      }
+    } else {
+      // Local storage mode - save to IndexedDB (no size limit)
+      if (isUpdate) {
+        // Update existing document
+        savedDoc = await updateDocument(activeTab.id, name, content);
+      } else {
+        // Create new document
+        savedDoc = await saveDocument(name, content);
+        setCurrentDocumentId(savedDoc.id);
+      }
+    }
+
+    // Update tab with saved document ID and name
+    setOpenTabs(prevTabs =>
+      prevTabs.map(tab =>
+        tab.id === activeTabId
+          ? { ...tab, id: savedDoc.id, name: savedDoc.name, content: content, isDirty: false }
+          : tab
+      )
+    );
+    
+    // Update active tab ID if it changed
+    if (!isUpdate) {
+      setActiveTabId(savedDoc.id);
+    }
+
+    const syncStatus = user && !incognitoMode ? ' to cloud' : ' locally';
+    alert(`Document "${name}" saved successfully${syncStatus}!`);
+  };
+
+  const handleCompressionConfirm = async (compressedContent: string, method: CompressionMethod) => {
+    setIsCompressionDialogOpen(false);
+    if (!compressionDialogData) return;
+
+    try {
+      await performSave(compressionDialogData.name, compressedContent);
+      setCompressionDialogData(null);
+    } catch (error) {
+      console.error('Error saving compressed document:', error);
+      alert(`Failed to save document. ${error instanceof Error ? error.message : 'Please try again.'}`);
     }
   };
 
@@ -951,6 +988,15 @@ const App: React.FC = () => {
       const cloudDoc = await getDocumentFromFirestore(user.uid, doc.id);
       if (cloudDoc) {
         documentContent = cloudDoc.content;
+      }
+    }
+
+    // Decompress content if it was compressed
+    if (documentContent.startsWith('GZIP:') || documentContent.startsWith('LZ:')) {
+      try {
+        documentContent = await decompressGzip(documentContent);
+      } catch (error) {
+        console.error('Failed to decompress document:', error);
       }
     }
 
@@ -1486,6 +1532,20 @@ const App: React.FC = () => {
         userId={user?.uid}
         incognitoMode={incognitoMode}
       />
+
+      {compressionDialogData && (
+        <CompressionDialog
+          isOpen={isCompressionDialogOpen}
+          onClose={() => {
+            setIsCompressionDialogOpen(false);
+            setCompressionDialogData(null);
+          }}
+          onConfirm={handleCompressionConfirm}
+          content={compressionDialogData.content}
+          documentName={compressionDialogData.name}
+          maxSize={900000}
+        />
+      )}
 
       <DocumentLibrary
         isOpen={isDocumentLibraryOpen}
