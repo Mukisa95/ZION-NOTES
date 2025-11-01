@@ -226,8 +226,70 @@ export enum CompressionMethod {
   REMOVE_IMAGES = 'remove_images',
   REDUCE_QUALITY = 'reduce_quality',
   GZIP = 'gzip',
-  GZIP_AND_REDUCE = 'gzip_and_reduce'
+  GZIP_AND_REDUCE = 'gzip_and_reduce',
+  SPLIT_DOCUMENT = 'split_document'
 }
+
+// Split document into parts based on size
+export interface SplitResult {
+  part1: string;
+  part2: string;
+  splitPoint: string; // Description of where split occurred
+}
+
+export const splitDocument = (html: string, maxSize: number): SplitResult => {
+  // Try to split at a good point (paragraph boundary, heading, etc.)
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const body = doc.body;
+  
+  let currentSize = 0;
+  let splitIndex = -1;
+  let splitPoint = '';
+  const children = Array.from(body.children);
+  
+  // Find the split point by accumulating size
+  for (let i = 0; i < children.length; i++) {
+    const element = children[i];
+    const elementHtml = element.outerHTML;
+    const elementSize = new Blob([elementHtml]).size;
+    
+    if (currentSize + elementSize > maxSize * 0.85) { // Split at 85% to be safe
+      splitIndex = i;
+      
+      // Describe the split point
+      const tagName = element.tagName.toLowerCase();
+      const text = element.textContent?.substring(0, 50) || '';
+      splitPoint = `${tagName.toUpperCase()}: "${text}${text.length >= 50 ? '...' : ''}"`;
+      break;
+    }
+    
+    currentSize += elementSize;
+  }
+  
+  if (splitIndex === -1 || splitIndex === 0) {
+    // Can't split cleanly, split at approximate middle
+    const middleIndex = Math.floor(children.length / 2);
+    splitIndex = middleIndex > 0 ? middleIndex : 1;
+    splitPoint = `Middle of document (element ${splitIndex}/${children.length})`;
+  }
+  
+  // Create the two parts
+  const part1Children = children.slice(0, splitIndex);
+  const part2Children = children.slice(splitIndex);
+  
+  const part1Doc = document.implementation.createHTMLDocument();
+  const part2Doc = document.implementation.createHTMLDocument();
+  
+  part1Children.forEach(child => part1Doc.body.appendChild(child.cloneNode(true)));
+  part2Children.forEach(child => part2Doc.body.appendChild(child.cloneNode(true)));
+  
+  return {
+    part1: part1Doc.body.innerHTML,
+    part2: part2Doc.body.innerHTML,
+    splitPoint
+  };
+};
 
 // Apply selected compression method
 export const applyCompression = async (
@@ -248,6 +310,10 @@ export const applyCompression = async (
     case CompressionMethod.GZIP_AND_REDUCE:
       const reduced = await reduceImageQuality(content, quality);
       return await compressWithGzip(reduced);
+      
+    case CompressionMethod.SPLIT_DOCUMENT:
+      // For split, we'll handle this differently in the dialog
+      return content;
       
     case CompressionMethod.NONE:
     default:

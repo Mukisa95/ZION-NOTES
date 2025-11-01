@@ -6,13 +6,15 @@ import {
   formatBytes, 
   getContentSize,
   applyCompression,
-  SizeBreakdown 
+  SizeBreakdown,
+  splitDocument,
+  SplitResult
 } from '../utils/compressionUtils';
 
 interface CompressionDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (compressedContent: string, method: CompressionMethod) => void;
+  onConfirm: (compressedContent: string, method: CompressionMethod, splitData?: SplitResult) => void;
   content: string;
   documentName: string;
   maxSize: number; // Maximum allowed size in bytes
@@ -31,14 +33,19 @@ export const CompressionDialog: React.FC<CompressionDialogProps> = ({
   const [sizeBreakdown, setSizeBreakdown] = useState<SizeBreakdown | null>(null);
   const [estimatedSize, setEstimatedSize] = useState<number>(0);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [splitPreview, setSplitPreview] = useState<SplitResult | null>(null);
 
   useEffect(() => {
     if (isOpen && content) {
       const breakdown = getSizeBreakdown(content);
       setSizeBreakdown(breakdown);
       setEstimatedSize(breakdown.total);
+      
+      // Calculate split preview
+      const split = splitDocument(content, maxSize);
+      setSplitPreview(split);
     }
-  }, [isOpen, content]);
+  }, [isOpen, content, maxSize]);
 
   useEffect(() => {
     const estimateSize = async () => {
@@ -67,6 +74,13 @@ export const CompressionDialog: React.FC<CompressionDialogProps> = ({
           estimated = (sizeBreakdown.text * 0.3) + (reducedImages * 0.9);
           break;
           
+        case CompressionMethod.SPLIT_DOCUMENT:
+          // Split will create documents that fit
+          if (splitPreview) {
+            estimated = getContentSize(splitPreview.part1);
+          }
+          break;
+          
         case CompressionMethod.NONE:
         default:
           estimated = sizeBreakdown.total;
@@ -76,13 +90,20 @@ export const CompressionDialog: React.FC<CompressionDialogProps> = ({
     };
     
     estimateSize();
-  }, [selectedMethod, quality, sizeBreakdown]);
+  }, [selectedMethod, quality, sizeBreakdown, splitPreview]);
 
   const handleConfirm = async () => {
     setIsProcessing(true);
     try {
-      const compressed = await applyCompression(content, selectedMethod, quality);
-      onConfirm(compressed, selectedMethod);
+      if (selectedMethod === CompressionMethod.SPLIT_DOCUMENT) {
+        // For split, pass the split data
+        if (splitPreview) {
+          onConfirm(splitPreview.part1, selectedMethod, splitPreview);
+        }
+      } else {
+        const compressed = await applyCompression(content, selectedMethod, quality);
+        onConfirm(compressed, selectedMethod);
+      }
     } catch (error) {
       console.error('Compression failed:', error);
       alert('Compression failed. Please try a different method.');
@@ -324,6 +345,71 @@ export const CompressionDialog: React.FC<CompressionDialogProps> = ({
                   </div>
                   <div className="text-xs text-green-600 dark:text-green-400 font-medium mt-2">
                     Most aggressive • Est. {formatBytes(estimatedSize)} final size
+                  </div>
+                </div>
+              </div>
+            </label>
+
+            {/* Split Document */}
+            <label className={`block p-4 border-2 rounded-lg cursor-pointer transition-all ${
+              selectedMethod === CompressionMethod.SPLIT_DOCUMENT
+                ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                : 'border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600'
+            }`}>
+              <input
+                type="radio"
+                name="compression"
+                value={CompressionMethod.SPLIT_DOCUMENT}
+                checked={selectedMethod === CompressionMethod.SPLIT_DOCUMENT}
+                onChange={(e) => setSelectedMethod(e.target.value as CompressionMethod)}
+                className="sr-only"
+              />
+              <div className="flex items-start gap-3">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 ${
+                  selectedMethod === CompressionMethod.SPLIT_DOCUMENT
+                    ? 'border-purple-500 bg-purple-500'
+                    : 'border-gray-300 dark:border-gray-600'
+                }`}>
+                  {selectedMethod === CompressionMethod.SPLIT_DOCUMENT && (
+                    <div className="w-2 h-2 bg-white rounded-full" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div className="font-semibold text-gray-900 dark:text-white">
+                    Split Into Multiple Documents
+                  </div>
+                  <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    Keep all content! Split document at a logical point. Creates "{documentName} (Part 1)" and "{documentName} (Part 2)".
+                  </div>
+                  {selectedMethod === CompressionMethod.SPLIT_DOCUMENT && splitPreview && (
+                    <div className="mt-3 p-3 bg-purple-50 dark:bg-purple-900/30 rounded-lg border border-purple-200 dark:border-purple-700">
+                      <div className="text-xs font-medium text-purple-900 dark:text-purple-100 mb-2">
+                        Split Preview:
+                      </div>
+                      <div className="space-y-1.5 text-xs">
+                        <div className="flex justify-between items-center">
+                          <span className="text-purple-700 dark:text-purple-300">Part 1:</span>
+                          <span className="font-medium text-purple-900 dark:text-purple-100">
+                            {formatBytes(getContentSize(splitPreview.part1))}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-purple-700 dark:text-purple-300">Part 2:</span>
+                          <span className="font-medium text-purple-900 dark:text-purple-100">
+                            {formatBytes(getContentSize(splitPreview.part2))}
+                          </span>
+                        </div>
+                        <div className="pt-2 mt-2 border-t border-purple-200 dark:border-purple-700">
+                          <div className="text-purple-700 dark:text-purple-300 mb-1">Split at:</div>
+                          <div className="text-purple-900 dark:text-purple-100 italic break-all">
+                            {splitPreview.splitPoint}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <div className="text-xs text-purple-600 dark:text-purple-400 font-medium mt-2">
+                    Keep everything • Two manageable documents
                   </div>
                 </div>
               </div>

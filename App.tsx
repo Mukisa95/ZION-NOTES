@@ -27,7 +27,7 @@ import { StatusToolbar } from './components/StatusToolbar';
 import { FindAndReplaceBar } from './components/FindAndReplaceBar';
 import { exportAsHtml, exportAsMarkdown, exportAsText, exportAsPdf, exportAsWord } from './utils/exportUtils';
 import { readDocxFile } from './services/docxService';
-import { getContentSize, CompressionMethod, decompressGzip } from './utils/compressionUtils';
+import { getContentSize, CompressionMethod, decompressGzip, SplitResult, formatBytes } from './utils/compressionUtils';
 
 const useClickOutside = (ref: React.RefObject<HTMLElement>, callback: () => void) => {
     useEffect(() => {
@@ -960,12 +960,22 @@ const App: React.FC = () => {
     alert(`Document "${name}" saved successfully${syncStatus}!`);
   };
 
-  const handleCompressionConfirm = async (compressedContent: string, method: CompressionMethod) => {
+  const handleCompressionConfirm = async (compressedContent: string, method: CompressionMethod, splitData?: SplitResult) => {
     setIsCompressionDialogOpen(false);
     if (!compressionDialogData) return;
 
     try {
-      await performSave(compressionDialogData.name, compressedContent);
+      if (method === CompressionMethod.SPLIT_DOCUMENT && splitData) {
+        // Save Part 1
+        await performSave(`${compressionDialogData.name} (Part 1)`, splitData.part1);
+        
+        // Save Part 2
+        await performSave(`${compressionDialogData.name} (Part 2)`, splitData.part2);
+        
+        alert(`Document split successfully!\n\nCreated:\n• ${compressionDialogData.name} (Part 1) - ${formatBytes(getContentSize(splitData.part1))}\n• ${compressionDialogData.name} (Part 2) - ${formatBytes(getContentSize(splitData.part2))}`);
+      } else {
+        await performSave(compressionDialogData.name, compressedContent);
+      }
       setCompressionDialogData(null);
     } catch (error) {
       console.error('Error saving compressed document:', error);
