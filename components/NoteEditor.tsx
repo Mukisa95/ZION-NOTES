@@ -275,6 +275,7 @@ export const NoteEditor = forwardRef<NoteEditorHandles, NoteEditorProps>(({ cont
   const selectionRef = useRef<Range | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({ visible: false, x: 0, y: 0, type: 'general' });
   const [selectionButton, setSelectionButton] = useState<{ visible: boolean; x: number; y: number }>({ visible: false, x: 0, y: 0 });
+  const [menuOpenedFromButton, setMenuOpenedFromButton] = useState<boolean>(false);
   const [isPromptModalOpen, setIsPromptModalOpen] = useState<boolean>(false);
   const [promptContext, setPromptContext] = useState<{ text: string, prefix: string }>({ text: '', prefix: '' });
   const [promptInitiator, setPromptInitiator] = useState<AiAction | null>(null);
@@ -929,6 +930,7 @@ ${selectedText}
     setContextMenu(prev => ({ ...prev, visible: false }));
     setContextSelectionImages([]);
     setSelectionButton({ visible: false, x: 0, y: 0 });
+    setMenuOpenedFromButton(false);
   }, []);
 
   useEffect(() => {
