@@ -93,7 +93,9 @@ const ContextMenu: React.FC<{
   state: ContextMenuState;
   onAction: (action: AiAction, customPrompt?: string) => void;
   onClose: () => void;
-}> = ({ state, onAction, onClose }) => {
+  onMinimize?: () => void;
+  showMinimize?: boolean;
+}> = ({ state, onAction, onClose, onMinimize, showMinimize }) => {
   const [activeSubMenu, setActiveSubMenu] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: state.x, y: state.y });
@@ -190,6 +192,24 @@ const ContextMenu: React.FC<{
         className="fixed z-50 bg-white/90 dark:bg-gray-800/90 backdrop-blur-md rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 w-56 sm:w-60 animate-fade-in-fast max-h-[80vh] overflow-y-auto"
         data-context-menu="true"
       >
+        {/* Header with minimize button for selection menus */}
+        {showMinimize && onMinimize && (
+          <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700">
+            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">AI Actions</span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMinimize();
+              }}
+              className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+              title="Minimize"
+            >
+              <svg className="h-4 w-4 text-gray-600 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+        )}
         <ul className="p-1.5 sm:p-2">
           {itemsToShow.map(item => (
             <li 
@@ -594,8 +614,22 @@ ${selectedText}
         y: adjusted.y,
         type: 'selection',
       });
+      setMenuOpenedFromButton(true);
       setSelectionButton({ visible: false, x: 0, y: 0 });
     }
+  };
+
+  // Handle minimizing the context menu back to button
+  const handleMinimizeMenu = () => {
+    setContextMenu({ visible: false, x: 0, y: 0, type: 'general' });
+    // Show the button again at its last position
+    const selection = window.getSelection();
+    if (selection && !selection.isCollapsed && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      setSelectionButton({ visible: true, x: rect.right + 5, y: rect.bottom + 5 });
+    }
+    setMenuOpenedFromButton(false);
   };
 
   // Detect text selection and show floating button
@@ -1386,7 +1420,13 @@ ${selectedText}
         </button>
       )}
       
-      <ContextMenu state={contextMenu} onAction={handleAiAction} onClose={closeContextMenu} />
+      <ContextMenu 
+        state={contextMenu} 
+        onAction={handleAiAction} 
+        onClose={closeContextMenu} 
+        onMinimize={menuOpenedFromButton ? handleMinimizeMenu : undefined}
+        showMinimize={menuOpenedFromButton && contextMenu.type === 'selection'}
+      />
       <PromptModal
         isOpen={isPromptModalOpen}
         onClose={() => {
