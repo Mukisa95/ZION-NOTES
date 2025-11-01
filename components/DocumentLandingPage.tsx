@@ -514,21 +514,21 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                                         <CheckIcon className="h-5 w-5" />
                                     </button>
                                     
-                                    <button
-                                        onClick={() => setIsCreateWareModalOpen(true)}
-                                        className="p-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
-                                        title="New WARE"
-                                    >
-                                        <FolderIcon className="h-5 w-5" />
-                                    </button>
-                                    
-                                    <button
-                                        onClick={onCreateNew}
-                                        className="p-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
-                                        title="New Document"
-                                    >
-                                        <PlusIcon className="h-5 w-5" />
-                                    </button>
+                            <button
+                                onClick={() => setIsCreateWareModalOpen(true)}
+                                className="p-3 bg-gradient-to-br from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 active:scale-95 icon-glossy"
+                                title="New WARE"
+                            >
+                                <FolderIcon className="h-5 w-5" />
+                            </button>
+                            
+                            <button
+                                onClick={onCreateNew}
+                                className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 active:scale-95 icon-glossy"
+                                title="New Document"
+                            >
+                                <PlusIcon className="h-5 w-5" />
+                            </button>
                                 </>
                             ) : (
                                 <>
@@ -632,16 +632,127 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                         </div>
                     </div>
 
-                    {/* Search Bar */}
-                    <div className="relative">
-                        <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                        <input
-                            type="text"
-                            placeholder="Search documents..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-all duration-200"
-                        />
+                    {/* Search Bar with Selection Controls */}
+                    <div className="flex items-center gap-3">
+                        <div className="relative flex-1">
+                            <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                            <input
+                                type="text"
+                                placeholder="Search documents and WARES..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-all duration-200"
+                            />
+                        </div>
+                        
+                        {/* Selection Mode Controls */}
+                        {!selectionMode ? (
+                            <button
+                                onClick={() => setSelectionMode(true)}
+                                className="p-3 bg-gradient-to-br from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 active:scale-95 flex-shrink-0 icon-glossy"
+                                title="Select Items"
+                            >
+                                <CheckIcon className="h-5 w-5" />
+                            </button>
+                        ) : (
+                            <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+                                <button
+                                    onClick={() => {
+                                        setSelectionMode(false);
+                                        setSelectedWareIds([]);
+                                        setSelectedDocIds([]);
+                                    }}
+                                    className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 text-sm font-semibold"
+                                >
+                                    Cancel
+                                </button>
+                                
+                                {/* WARE Selection Actions */}
+                                {selectedWareIds.length === 1 && (
+                                    <>
+                                        <button
+                                            onClick={() => {
+                                                const ware = wares.find(w => w.id === selectedWareIds[0]);
+                                                if (ware) {
+                                                    setRenameTarget({ type: 'ware', id: ware.id, currentName: ware.name });
+                                                    setRenameDialogOpen(true);
+                                                }
+                                            }}
+                                            className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all"
+                                            title="Rename WARE"
+                                        >
+                                            <EditIcon className="h-5 w-5" />
+                                        </button>
+                                        <button
+                                            onClick={handleBulkDeleteWares}
+                                            className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all"
+                                            title="Delete WARE"
+                                        >
+                                            <TrashIcon className="h-5 w-5" />
+                                        </button>
+                                    </>
+                                )}
+                                
+                                {selectedWareIds.length > 1 && (
+                                    <button
+                                        onClick={handleBulkDeleteWares}
+                                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all text-sm font-semibold"
+                                    >
+                                        Delete {selectedWareIds.length} WARES
+                                    </button>
+                                )}
+                                
+                                {/* Document Selection Actions */}
+                                {selectedDocIds.length === 1 && selectedWareIds.length === 0 && (
+                                    <>
+                                        <button
+                                            onClick={() => {
+                                                const doc = documents.find(d => d.id === selectedDocIds[0]);
+                                                if (doc) {
+                                                    setRenameTarget({ type: 'document', id: doc.id, currentName: doc.name });
+                                                    setRenameDialogOpen(true);
+                                                }
+                                            }}
+                                            className="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all"
+                                            title="Rename Document"
+                                        >
+                                            <EditIcon className="h-5 w-5" />
+                                        </button>
+                                        <button
+                                            onClick={() => setMoveToWareDialogOpen(true)}
+                                            className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all"
+                                            title="Move to WARE"
+                                        >
+                                            <FolderIcon className="h-5 w-5" />
+                                        </button>
+                                        <button
+                                            onClick={handleBulkDeleteDocuments}
+                                            className="p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all"
+                                            title="Delete Document"
+                                        >
+                                            <TrashIcon className="h-5 w-5" />
+                                        </button>
+                                    </>
+                                )}
+                                
+                                {selectedDocIds.length > 1 && selectedWareIds.length === 0 && (
+                                    <>
+                                        <button
+                                            onClick={() => setMoveToWareDialogOpen(true)}
+                                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all text-sm font-semibold"
+                                        >
+                                            Move {selectedDocIds.length} to WARE
+                                        </button>
+                                        <button
+                                            onClick={handleBulkDeleteDocuments}
+                                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all text-sm font-semibold"
+                                        >
+                                            Delete {selectedDocIds.length} Docs
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -711,7 +822,10 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                                                 {matchedDocs.map(doc => (
                                                     <div
                                                         key={doc.id}
-                                                        onClick={() => onOpenDocument(doc)}
+                                                        onClick={(e) => {
+                                                            e.currentTarget.classList.add('icon-press');
+                                                            setTimeout(() => onOpenDocument(doc), 100);
+                                                        }}
                                                         className="flex items-center gap-2 py-2 px-3 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors border-l-2 border-gray-300 dark:border-gray-600"
                                                     >
                                                         <DocumentIcon className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
@@ -735,16 +849,17 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                                     return (
                                         <div
                                             key={ware.id}
-                                            onClick={(e) => {
-                                                if (selectionMode) {
-                                                    handleToggleWareSelection(ware.id, e);
-                                                } else {
-                                                    handleOpenWare(ware);
-                                                }
-                                            }}
-                                            className={`group flex flex-col items-center gap-2 cursor-pointer transition-transform duration-200 hover:scale-105 ${
-                                                isSelected ? 'ring-2 ring-blue-500 rounded-lg p-1' : ''
-                                            }`}
+                                        onClick={(e) => {
+                                            if (selectionMode) {
+                                                handleToggleWareSelection(ware.id, e);
+                                            } else {
+                                                e.currentTarget.classList.add('icon-press');
+                                                setTimeout(() => handleOpenWare(ware), 100);
+                                            }
+                                        }}
+                                        className={`group flex flex-col items-center gap-2 cursor-pointer transition-transform duration-200 hover:scale-110 ${
+                                            isSelected ? 'ring-2 ring-blue-500 rounded-lg p-1' : ''
+                                        }`}
                                             style={{
                                                 width: '90px'
                                             }}
