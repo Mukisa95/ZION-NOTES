@@ -3,6 +3,7 @@ import { NoteEditor } from './components/NoteEditor';
 import { ChatWindow } from './components/ChatSidebar';
 import { SparklesIcon, BoldIcon, ItalicIcon, TrashIcon, BrainIcon, TextColorIcon, AlignLeftIcon, AlignCenterIcon, AlignRightIcon, AlignJustifyIcon, SuperscriptIcon, SubscriptIcon, SearchIcon, ExportIcon, PdfIcon, WordIcon, UploadIcon, SettingsIcon, BulletListIcon, NumberListIcon, ChevronDownIcon, SaveIcon, FolderIcon, DocumentIcon, CloudIcon, HomeIcon, UndoIcon, RedoIcon } from './components/icons';
 import { ListStylePicker } from './components/ListStylePicker';
+import { AlignmentPicker } from './components/AlignmentPicker';
 import { markdownToHtml } from './utils/markdown';
 import { FormatType, NoteEditorHandles } from './types';
 import { HelpMeThinkModal } from './components/HelpMeThinkModal';
@@ -352,50 +353,16 @@ const FormattingToolbar: React.FC<{
         )}
         
         <div className="flex items-center gap-0.5 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-1 py-0.5 rounded-md border border-gray-200/50 dark:border-gray-700/50">
-          <button 
-            onMouseDown={(e) => { e.preventDefault(); onFormat('justifyLeft'); }} 
-            className={`p-1.5 rounded transition-all ${
-              activeFormats.justifyLeft 
-                ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' 
-                : 'text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400'
-            }`}
-            title="Align Left"
-          >
-            <AlignLeftIcon className="h-3.5 w-3.5" />
-        </button>
-          <button 
-            onMouseDown={(e) => { e.preventDefault(); onFormat('justifyCenter'); }} 
-            className={`p-1.5 rounded transition-all ${
-              activeFormats.justifyCenter 
-                ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' 
-                : 'text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400'
-            }`}
-            title="Align Center"
-          >
-            <AlignCenterIcon className="h-3.5 w-3.5" />
-        </button>
-          <button 
-            onMouseDown={(e) => { e.preventDefault(); onFormat('justifyRight'); }} 
-            className={`p-1.5 rounded transition-all ${
-              activeFormats.justifyRight 
-                ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' 
-                : 'text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400'
-            }`}
-            title="Align Right"
-          >
-            <AlignRightIcon className="h-3.5 w-3.5" />
-        </button>
-          <button 
-            onMouseDown={(e) => { e.preventDefault(); onFormat('justifyFull'); }} 
-            className={`p-1.5 rounded transition-all ${
-              activeFormats.justifyFull 
-                ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' 
-                : 'text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400'
-            }`}
-            title="Justify"
-          >
-            <AlignJustifyIcon className="h-3.5 w-3.5" />
-        </button>
+          <AlignmentPicker
+            onSelect={(alignment) => onFormat(alignment)}
+            currentAlignment={
+              activeFormats.justifyLeft ? 'justifyLeft' :
+              activeFormats.justifyCenter ? 'justifyCenter' :
+              activeFormats.justifyRight ? 'justifyRight' :
+              activeFormats.justifyFull ? 'justifyFull' :
+              'justifyLeft'
+            }
+          />
         </div>
 
         <div className="flex items-center gap-0.5 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-1 py-0.5 rounded-md border border-gray-200/50 dark:border-gray-700/50">
