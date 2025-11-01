@@ -189,88 +189,88 @@ export const WareViewModal: React.FC<WareViewModalProps> = ({
                             <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">{documents.length} document{documents.length !== 1 ? 's' : ''}</p>
                         </div>
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="p-2 rounded-xl text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all flex-shrink-0"
-                    >
-                        <XIcon className="h-5 w-5" />
-                    </button>
-                </div>
-
-                <div className="p-3 sm:p-4 border-b border-gray-100 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-900/50">
-                    <div className="flex items-center gap-2 flex-wrap">
-                        {selectedDocIds.length > 0 ? (
-                            <>
-                                <button
-                                    onClick={handleOpenSelected}
-                                    className="px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all text-xs sm:text-sm"
-                                >
-                                    Open Selected ({selectedDocIds.length})
-                                </button>
-                                <button
-                                    onClick={handleDeleteSelectedDocuments}
-                                    className="px-3 sm:px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-all text-xs sm:text-sm flex items-center gap-2"
-                                >
-                                    <TrashIcon className="h-4 w-4" />
-                                    Delete Selected
-                                </button>
-                            </>
-                        ) : (
-                            <>
-                                {documents.length > 0 && (
-                                    <button
-                                        onClick={handleOpenAll}
-                                        className="px-3 sm:px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold rounded-lg transition-all text-xs sm:text-sm"
-                                    >
-                                        Open All ({documents.length})
-                                    </button>
-                                )}
-                                {onAddDocuments && (
-                                    <button
-                                        onClick={onAddDocuments}
-                                        className="p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all"
-                                        title="Add documents"
-                                    >
-                                        <PlusIcon className="h-5 w-5" />
-                                    </button>
-                                )}
-                                <div className="ml-auto relative">
-                                    <button
-                                        onClick={() => setShowDeleteOptions(!showDeleteOptions)}
-                                        className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                                        title="Delete options"
-                                    >
-                                        <TrashIcon className="h-5 w-5" />
-                                    </button>
-                                    {showDeleteOptions && (
-                                        <>
-                                            <div 
-                                                className="fixed inset-0 z-40"
-                                                onClick={() => setShowDeleteOptions(false)}
-                                            />
-                                            <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50">
-                                                <button
-                                                    onClick={handleDeleteWareOnly}
-                                                    className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors rounded-t-lg"
-                                                >
-                                                    <div className="font-semibold text-gray-900 dark:text-white">Delete WARE only</div>
-                                                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Keep all documents</div>
-                                                </button>
-                                                <button
-                                                    onClick={handleDeleteWareAndDocuments}
-                                                    className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors rounded-b-lg border-t border-gray-200 dark:border-gray-700"
-                                                >
-                                                    <div className="font-semibold text-red-600 dark:text-red-400">Delete WARE & Documents</div>
-                                                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Remove everything permanently</div>
-                                                </button>
-                                            </div>
-                                        </>
-                                    )}
-                                </div>
-                            </>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        {onAddDocuments && (
+                            <button
+                                onClick={onAddDocuments}
+                                className="p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all"
+                                title="Add documents"
+                            >
+                                <PlusIcon className="h-5 w-5" />
+                            </button>
                         )}
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowDeleteOptions(!showDeleteOptions)}
+                                className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                title="Delete options"
+                            >
+                                <TrashIcon className="h-5 w-5" />
+                            </button>
+                            {showDeleteOptions && (
+                                <>
+                                    <div 
+                                        className="fixed inset-0 z-40"
+                                        onClick={() => setShowDeleteOptions(false)}
+                                    />
+                                    <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 z-50">
+                                        <button
+                                            onClick={handleDeleteWareOnly}
+                                            className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors rounded-t-lg"
+                                        >
+                                            <div className="font-semibold text-gray-900 dark:text-white">Delete WARE only</div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Keep all documents</div>
+                                        </button>
+                                        <button
+                                            onClick={handleDeleteWareAndDocuments}
+                                            className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors rounded-b-lg border-t border-gray-200 dark:border-gray-700"
+                                        >
+                                            <div className="font-semibold text-red-600 dark:text-red-400">Delete WARE & Documents</div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Remove everything permanently</div>
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="p-2 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+                        >
+                            <XIcon className="h-5 w-5" />
+                        </button>
                     </div>
                 </div>
+
+                {documents.length > 0 && (
+                    <div className="p-3 sm:p-4 border-b border-gray-100 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-900/50">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            {selectedDocIds.length > 0 ? (
+                                <>
+                                    <button
+                                        onClick={handleOpenSelected}
+                                        className="px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all text-xs sm:text-sm"
+                                    >
+                                        Open Selected ({selectedDocIds.length})
+                                    </button>
+                                    <button
+                                        onClick={handleDeleteSelectedDocuments}
+                                        className="px-3 sm:px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-all text-xs sm:text-sm flex items-center gap-2"
+                                    >
+                                        <TrashIcon className="h-4 w-4" />
+                                        Delete Selected
+                                    </button>
+                                </>
+                            ) : (
+                                <button
+                                    onClick={handleOpenAll}
+                                    className="px-3 sm:px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold rounded-lg transition-all text-xs sm:text-sm"
+                                >
+                                    Open All ({documents.length})
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 <div className="flex-1 overflow-y-auto p-4 sm:p-6">
                     {loading ? (
