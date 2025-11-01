@@ -565,7 +565,11 @@ ${selectedText}
   };
 
   // Handle selection button click to show menu
-  const handleSelectionButtonClick = async () => {
+  const handleSelectionButtonClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('Selection button clicked');
     const selection = window.getSelection();
     
     if (selection && !selection.isCollapsed && selectionRef.current) {
@@ -920,17 +924,25 @@ ${selectedText}
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       
+      // Don't close if clicking on control elements, context menu, or modal
       if (target.closest('[data-control-element]') || target.closest('[data-context-menu]') || target.closest('[data-modal]')) {
         return;
       }
-      if (editorRef.current && !editorRef.current.contains(target)) {
-        setSelectedElement(null);
+      
+      // Don't close selection button if clicking inside editor
+      if (editorRef.current && editorRef.current.contains(target)) {
+        // Only clear selectedElement if clicking somewhere else in the editor
+        if (selectedElement && target !== selectedElement && !selectedElement.contains(target)) {
+          setSelectedElement(null);
+        }
         return;
       }
-      if (selectedElement && editorRef.current?.contains(target)) {
-        if (target !== selectedElement && !selectedElement.contains(target)) {
-            setSelectedElement(null);
-        }
+      
+      // Clicking outside editor - clear everything
+      if (editorRef.current && !editorRef.current.contains(target)) {
+        setSelectedElement(null);
+        setSelectionButton({ visible: false, x: 0, y: 0 });
+        return;
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -1360,14 +1372,15 @@ ${selectedText}
       {/* Floating Selection Button */}
       {selectionButton.visible && (
         <button
-          onClick={handleSelectionButtonClick}
-          className="fixed z-50 p-2 bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-full shadow-2xl transition-all duration-200 transform hover:scale-110 active:scale-95 icon-glossy animate-fade-in-fast"
+          onMouseDown={handleSelectionButtonClick}
+          className="fixed z-50 p-2 bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-full shadow-2xl transition-all duration-200 transform hover:scale-110 active:scale-95 icon-glossy animate-fade-in-fast cursor-pointer"
           style={{
             top: selectionButton.y,
             left: selectionButton.x,
           }}
           title="AI Actions"
           data-control-element="true"
+          data-selection-button="true"
         >
           <SparklesIcon className="h-5 w-5" />
         </button>
