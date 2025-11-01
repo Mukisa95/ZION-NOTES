@@ -656,8 +656,34 @@ ${selectedText}
         
         // Calculate button position at end of selection
         const rect = range.getBoundingClientRect();
-        const buttonX = rect.right + 5;
-        const buttonY = rect.bottom + 5;
+        let buttonX = rect.right + 5;
+        let buttonY = rect.bottom + 5;
+        
+        // Apply boundary detection for the button
+        const buttonSize = 44; // Approximate button size (p-2 with icon)
+        const padding = 10;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        
+        // Check right boundary
+        if (buttonX + buttonSize > viewportWidth - padding) {
+          buttonX = viewportWidth - buttonSize - padding;
+        }
+        
+        // Check left boundary
+        if (buttonX < padding) {
+          buttonX = padding;
+        }
+        
+        // Check bottom boundary
+        if (buttonY + buttonSize > viewportHeight - padding) {
+          buttonY = viewportHeight - buttonSize - padding;
+        }
+        
+        // Check top boundary
+        if (buttonY < padding) {
+          buttonY = padding;
+        }
         
         setSelectionButton({ visible: true, x: buttonX, y: buttonY });
       } else {
