@@ -62,12 +62,6 @@ export const MenuIcon: React.FC<IconProps> = (props) => (
   </svg>
 );
 
-export const TocIcon: React.FC<IconProps> = (props) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h8m-8 6h16" />
-  </svg>
-);
-
 export const SendIcon: React.FC<IconProps> = (props) => (
   <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -475,5 +469,14 @@ export const UndoIcon: React.FC<IconProps> = (props) => (
 export const RedoIcon: React.FC<IconProps> = (props) => (
     <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" d="M15 15 21 9m0 0-6-6M21 9H9a6 6 0 0 0 0 12h3" />
+    </svg>
+);
+
+export const TableOfContentsIcon: React.FC<IconProps> = (props) => (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6h13.5M8.25 12h13.5m-13.5 6h13.5" />
+        <circle cx="4" cy="6" r="1.5" fill="currentColor" />
+        <circle cx="4" cy="12" r="1.5" fill="currentColor" />
+        <circle cx="4" cy="18" r="1.5" fill="currentColor" />
     </svg>
 );

@@ -57,12 +57,6 @@ export enum AiAction {
   ANSWER_KEY_POINTS = 'Key Points',
   HELP_ME_THINK = 'Let me help you think',
   PROMPT_WITH_IMAGE = 'Ask AI about Image',
-  
-  // Table of Contents / Headings
-  MARK_HEADING_1 = 'Mark as Heading 1',
-  MARK_HEADING_2 = 'Mark as Heading 2',
-  MARK_HEADING_3 = 'Mark as Heading 3',
-  MARK_HEADING_4 = 'Mark as Heading 4'
 }
 
 export interface AiPreviewState {
@@ -86,4 +80,24 @@ export interface NoteEditorHandles {
   focus: () => void;
   getSelectionHtml: () => string | null;
   openSelectionMenu: () => void;
+}
+
+export type TranscriptionOption =
+  | 'original'
+  | 'correct'
+  | 'organize'
+  | 'summarize';
+
+export interface UploadedFile {
+  id: string;
+  file: File;
+  preview: string;
+  order: number;
+  type: 'image' | 'pdf';
+}
+
+export interface TranscriptionError {
+  id: string;
+  original: string;
+  suggestion: string;
 }

@@ -110,6 +110,29 @@
     font-weight: bold;
   }
   
+  /* Marked headings for Table of Contents */
+  [contenteditable] [data-heading="true"] {
+    position: relative;
+    padding-left: 0.25rem;
+    margin-top: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+  
+  [contenteditable] [data-heading="true"][data-heading-level="1"] {
+    font-size: 16pt;
+    font-weight: bold;
+  }
+  
+  [contenteditable] [data-heading="true"][data-heading-level="2"] {
+    font-size: 13pt;
+    font-weight: bold;
+  }
+  
+  [contenteditable] [data-heading="true"][data-heading-level="3"] {
+    font-size: 12pt;
+    font-weight: bold;
+  }
+  
   /* Modern Select Dropdowns */
   select {
     background-color: white;
@@ -261,6 +284,21 @@
     animation: fade-in-fast 0.15s ease-out;
   }
   
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  .animate-scale-in {
+    animation: scale-in 0.2s ease-out;
+  }
+  
   /* Placeholder animations */
   @keyframes float-gentle {
     0%, 100% {
@@ -324,31 +362,16 @@
   }
   
   /* Document and WARE animations */
-      @keyframes fadeInScale {
-        from {
-          opacity: 0;
-          transform: scale(0.95);
-        }
-        to {
-          opacity: 1;
-          transform: scale(1);
-        }
-      }
-
-      @keyframes slideInRight {
-        from {
-          transform: translateX(100%);
-          opacity: 0;
-        }
-        to {
-          transform: translateX(0);
-          opacity: 1;
-        }
-      }
-
-      .animate-slide-in-right {
-        animation: slideInRight 0.3s ease-out;
-      }
+  @keyframes fadeInScale {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
   
   @keyframes fadeInSlide {
     from {

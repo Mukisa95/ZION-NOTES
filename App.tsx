@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { NoteEditor } from './components/NoteEditor';
 import { ChatWindow } from './components/ChatSidebar';
-import { SparklesIcon, BoldIcon, ItalicIcon, TrashIcon, BrainIcon, TextColorIcon, AlignLeftIcon, AlignCenterIcon, AlignRightIcon, AlignJustifyIcon, SuperscriptIcon, SubscriptIcon, SearchIcon, ExportIcon, PdfIcon, WordIcon, UploadIcon, SettingsIcon, BulletListIcon, NumberListIcon, ChevronDownIcon, SaveIcon, FolderIcon, DocumentIcon, CloudIcon, HomeIcon, UndoIcon, RedoIcon, TocIcon } from './components/icons';
+import { SparklesIcon, BoldIcon, ItalicIcon, TrashIcon, BrainIcon, TextColorIcon, AlignLeftIcon, AlignCenterIcon, AlignRightIcon, AlignJustifyIcon, SuperscriptIcon, SubscriptIcon, SearchIcon, ExportIcon, PdfIcon, WordIcon, UploadIcon, SettingsIcon, BulletListIcon, NumberListIcon, ChevronDownIcon, SaveIcon, FolderIcon, DocumentIcon, CloudIcon, HomeIcon, UndoIcon, RedoIcon, TableOfContentsIcon } from './components/icons';
 import { ListStylePicker } from './components/ListStylePicker';
 import { AlignmentPicker } from './components/AlignmentPicker';
 import { markdownToHtml } from './utils/markdown';
@@ -19,7 +19,8 @@ import { DocumentLandingPage } from './components/DocumentLandingPage';
 import { WareViewModal } from './components/WareViewModal';
 import { CompressionDialog } from './components/CompressionDialog';
 import { CompressionIndicator } from './components/CompressionIndicator';
-import { TableOfContents } from './components/TableOfContents';
+import TranscriptionScreen from './components/TranscriptionScreen';
+import { TableOfContentsModal } from './components/TableOfContentsModal';
 import { useAuth } from './contexts/AuthContext';
 import { saveDocument, updateDocument, getCurrentDocumentId, setCurrentDocumentId, SavedDocument } from './services/documentStorage';
 import { Ware, deleteWare } from './services/wareStorage';
@@ -54,8 +55,7 @@ const FormattingToolbar: React.FC<{
   onOpenSelectionMenu?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
-  onOpenToc?: () => void;
-}> = ({ onFormat, onClear, onInsertList, onOpenSelectionMenu, onUndo, onRedo, onOpenToc }) => {
+}> = ({ onFormat, onClear, onInsertList, onOpenSelectionMenu, onUndo, onRedo }) => {
     const colorInputRef = useRef<HTMLInputElement>(null);
     const fontFamilyRef = useRef<HTMLSelectElement>(null);
     const fontSizeRef = useRef<HTMLSelectElement>(null);
@@ -454,7 +454,9 @@ const App: React.FC = () => {
   const [selectedWare, setSelectedWare] = useState<Ware | null>(null);
   const [isCompressionDialogOpen, setIsCompressionDialogOpen] = useState(false);
   const [compressionDialogData, setCompressionDialogData] = useState<{ name: string; content: string } | null>(null);
-  const [isTocOpen, setIsTocOpen] = useState(false);
+  const [isTableOfContentsOpen, setIsTableOfContentsOpen] = useState(false);
+  const [isTranscriptionOpen, setIsTranscriptionOpen] = useState(false);
+  const [transcriptionPreview, setTranscriptionPreview] = useState<{ html: string; errors: { original: string; suggestion: string }[] } | null>(null);
 
   // Get active tab
   const activeTab = activeTabId ? openTabs.find(tab => tab.id === activeTabId) : null;
@@ -691,7 +693,8 @@ const App: React.FC = () => {
       const target = e.target as HTMLElement;
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
         // Only handle undo/redo if not in a contentEditable that's not our editor
-        const isEditor = editorRef.current?.contains(target);
+        const editorElement = document.querySelector('[data-note-editor-root]');
+        const isEditor = editorElement instanceof HTMLElement ? editorElement.contains(target) : false;
         if (!isEditor && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
           return;
         }
@@ -756,6 +759,18 @@ const App: React.FC = () => {
 
     // Close tab immediately if empty
     closeTabImmediately(tabId);
+  };
+
+  const handleTranscriptionComplete = (result: { html: string; errors: { original: string; suggestion: string }[] }) => {
+    setTranscriptionPreview(result);
+    setIsTranscriptionOpen(false);
+  };
+
+  const handleApplyTranscription = () => {
+    if (transcriptionPreview?.html) {
+      editorRef.current?.appendText(transcriptionPreview.html);
+    }
+    setTranscriptionPreview(null);
   };
 
   const closeTabImmediately = (tabId: string) => {
@@ -1094,6 +1109,19 @@ const App: React.FC = () => {
       fileInputRef.current?.click();
   };
 
+  const handleNavigateToHeading = (headingId: string) => {
+    const element = document.getElementById(headingId);
+    if (element && mainContainerRef.current) {
+      const rect = element.getBoundingClientRect();
+      const containerRect = mainContainerRef.current.getBoundingClientRect();
+      mainContainerRef.current.scrollTo({ 
+        top: mainContainerRef.current.scrollTop + rect.top - containerRect.top - 100, 
+        behavior: 'smooth' 
+      });
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
   const handleUndo = () => {
     // Focus the editor first to ensure commands work on it
     editorRef.current?.focus();
@@ -1298,6 +1326,20 @@ const App: React.FC = () => {
               >
                   <SearchIcon className="h-4 w-4" />
               </button>
+              <button
+                onClick={() => setIsTranscriptionOpen(true)}
+                className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all"
+                title="Transcribe files"
+              >
+                <DocumentIcon className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => setIsTableOfContentsOpen(true)}
+                className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all"
+                title="Table of Contents"
+              >
+                <TableOfContentsIcon className="h-4 w-4" />
+              </button>
             <div className="relative" ref={exportMenuRef}>
                  <button
                     onClick={handleToggleExportMenu}
@@ -1403,7 +1445,6 @@ const App: React.FC = () => {
               }}
               onUndo={handleUndo}
               onRedo={handleRedo}
-              onOpenToc={() => setIsTocOpen(true)}
             />
           </div>
         </header>
@@ -1545,13 +1586,6 @@ const App: React.FC = () => {
         />
       )}
 
-      <TableOfContents
-        isOpen={isTocOpen}
-        onClose={() => setIsTocOpen(false)}
-        editorRef={editorRef as any}
-        scrollContainerRef={mainContainerRef}
-      />
-
       <DocumentLibrary
         isOpen={isDocumentLibraryOpen}
         onClose={() => setIsDocumentLibraryOpen(false)}
@@ -1604,6 +1638,96 @@ const App: React.FC = () => {
         onDontSave={handleDontSaveAndClose}
         documentName={openTabs.find(t => t.id === tabToClose)?.name || 'Untitled'}
       />
+
+      <TableOfContentsModal
+        isOpen={isTableOfContentsOpen}
+        onClose={() => setIsTableOfContentsOpen(false)}
+        editorContent={noteContent}
+        onNavigateToHeading={handleNavigateToHeading}
+        onMarkHeading={handleNavigateToHeading}
+        documentId={activeTabId || undefined}
+      />
+
+      {isTranscriptionOpen && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm overflow-y-auto">
+          <div className="min-h-full flex items-center justify-center p-4">
+            <div className="w-full max-w-5xl bg-white dark:bg-gray-900 rounded-3xl shadow-2xl">
+              <TranscriptionScreen
+                onTranscriptionComplete={handleTranscriptionComplete}
+                onBack={() => setIsTranscriptionOpen(false)}
+                onHome={() => {
+                  setIsTranscriptionOpen(false);
+                  setShowLandingPage(true);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {transcriptionPreview && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm p-4 flex items-center justify-center">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-200 dark:border-gray-800">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Review Transcription</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Preview the generated content before inserting it into the document.
+                </p>
+              </div>
+              <button
+                onClick={() => setTranscriptionPreview(null)}
+                className="px-4 py-2 text-sm font-medium rounded-full border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+              >
+                Cancel
+              </button>
+            </div>
+            <div className="flex flex-col md:flex-row gap-4 px-6 py-4 overflow-y-auto">
+              <div className="flex-1 min-h-[300px] border border-gray-200 dark:border-gray-700 rounded-2xl p-4 overflow-y-auto bg-gray-50 dark:bg-gray-800">
+                <div
+                  className="prose dark:prose-invert max-w-none"
+                  dangerouslySetInnerHTML={{ __html: transcriptionPreview.html }}
+                />
+              </div>
+              <div className="md:w-80 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 bg-gray-50 dark:bg-gray-800">
+                <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-3">
+                  Detected Issues ({transcriptionPreview.errors.length})
+                </h4>
+                {transcriptionPreview.errors.length === 0 ? (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    No spelling or grammar issues were reported.
+                  </p>
+                ) : (
+                  <ul className="space-y-3 text-xs text-gray-700 dark:text-gray-200 max-h-64 overflow-y-auto">
+                    {transcriptionPreview.errors.map((err, idx) => (
+                      <li key={`${err.original}-${idx}`} className="p-2 rounded-lg bg-white dark:bg-gray-900 shadow-sm">
+                        <p className="font-semibold">Original:</p>
+                        <p className="text-gray-600 dark:text-gray-300 break-words">{err.original}</p>
+                        <p className="font-semibold mt-2">Suggestion:</p>
+                        <p className="text-green-600 dark:text-green-400 break-words">{err.suggestion}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-800 flex justify-end gap-3">
+              <button
+                onClick={() => setTranscriptionPreview(null)}
+                className="px-5 py-2 rounded-full text-sm font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleApplyTranscription}
+                className="px-6 py-2 rounded-full text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition shadow"
+              >
+                Insert into Document
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Table modal removed */}
     </div>
