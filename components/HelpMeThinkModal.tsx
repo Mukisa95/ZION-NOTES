@@ -1,5 +1,5 @@
 import React, { useState, FormEvent, useEffect, useRef } from 'react';
-import { generateText } from '../services/geminiService';
+import { generateText } from '../services/aiService';
 import { XIcon, SendIcon, BrainIcon, CheckIcon } from './icons';
 import { MarkdownRenderer } from './MarkdownRenderer';
 

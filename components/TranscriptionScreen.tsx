@@ -1,6 +1,6 @@
 import React, { ChangeEvent, useMemo, useState } from 'react';
 import { UploadedFile, TranscriptionError, TranscriptionOption } from '../types';
-import { transcribeFiles } from '../services/geminiService';
+import { transcribeFiles } from '../services/aiService';
 import ImageViewerModal from './ImageViewerModal';
 import ScreenHeader from './ScreenHeader';
 

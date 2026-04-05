@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { ContextMenuState, AiAction, AiPreviewState, FormatType, NoteEditorHandles } from '../types';
-import { generateText } from '../services/geminiService';
+import { generateText } from '../services/aiService';
 import { PromptModal } from './PromptModal';
 import { AiPreviewModal } from './AiPreviewModal';
 import { markdownToHtml, markdownToPlainText } from '../utils/markdown';
@@ -173,6 +173,7 @@ const ContextMenu: React.FC<{
       { label: AiAction.EXPAND, icon: <ExpandIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.EXPAND) },
       { label: AiAction.FIND_ALTERNATIVES, icon: <AlternativesIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.FIND_ALTERNATIVES) },
       { label: AiAction.CONTINUE_WRITING, icon: <ContinueIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.CONTINUE_WRITING) },
+      { label: AiAction.DEEP_VOCABULARY, icon: <StarIcon className="h-5 w-5 mr-3 text-amber-500" />, action: () => onAction(AiAction.DEEP_VOCABULARY) },
       { label: 'Custom Prompt...', icon: <SparklesIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.CUSTOM_PROMPT) },
     ],
     image: [
@@ -517,10 +518,60 @@ ${selectedText}
           return;
         }
         break;
+      case AiAction.DEEP_VOCABULARY:
+        prompt = `You are an expert English language teacher. I will provide you with a list of vocabulary words (possibly with a topic/sub-topic heading).
+Your task is to reorganize and deeply expand the vocabulary into a structured, beautifully formatted learning resource.
+
+Follow ALL of these instructions carefully:
+
+**1. PRESERVE TOPIC HEADINGS**
+If the text starts with a topic or sub-topic heading (e.g. "TOPIC 1: SCHOOL HOLIDAYS" or "SUB-TOPIC 1A: ..."), reproduce it at the very top as a Markdown heading (# or ##), followed by a decorative emoji.
+
+**2. GROUPING**
+Organize all words by part of speech:
+- ## 📝 NOUNS
+- ## 🏃 VERBS
+- ## 🎨 ADJECTIVES
+- ## 🔗 PHRASAL VERBS (if any)
+- ## 💫 ADVERBS (if any)
+
+**3. FOR EACH WORD, INCLUDE:**
+
+### [Number]. **[Word]**
+* **Part of speech:** ...
+* **Meaning:** clear, simple meaning (improve if wrong)
+* **Example:** one well-structured example sentence
+* **Word forms:** (singular → plural for nouns; base/3rd person/past/continuous for verbs; include derived forms)
+* **Extended forms:** related noun/adjective/adverb/verb forms with their own plurals/tenses where useful
+* **Prepositions:** common prepositions used with this word + short phrase examples
+* **Opposites:** at least one antonym, or state "No direct opposite"
+* **Synonyms:** 1–2 simple synonyms
+* **📌 Teacher's Tip:** a practical usage tip — common learner mistakes, British vs American usage, spelling traps, or register notes
+
+**4. ACCURACY**
+- Correct any wrong definitions or example sentences in the original list
+- Ensure all grammar is correct
+
+**5. LANGUAGE LEVEL**
+- Use simple, clear English suitable for primary or lower-secondary learners
+- Avoid complex grammar terminology
+
+**6. FORMAT**
+- Use clear Markdown headings, bold labels, and bullet points
+- Add a horizontal rule (---) between parts of speech sections
+- End with a short ✅ Teacher's Final Note encouraging learners
+- Do NOT skip any word
+
+Here is the vocabulary list to process:
+---
+${selectedText}
+---`;
+        break;
     }
 
     setPreviewState({
       isOpen: true,
+
       isLoading: true,
       content: '',
       originalAction: { action, customPrompt },

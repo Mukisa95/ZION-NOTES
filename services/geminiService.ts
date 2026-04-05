@@ -58,7 +58,7 @@ export const generateText = async (prompt: string, images?: { mimeType: string; 
   }
 };
 
-export const createChatSession = (): Chat => {
+export const createGeminiChatSession = (): Chat => {
   const ai = getAI();
   return ai.chats.create({
     model: TEXT_MODEL,
@@ -68,6 +68,10 @@ export const createChatSession = (): Chat => {
     },
   });
 };
+
+// Keep old export name for backward compat
+export const createChatSession = createGeminiChatSession;
+
 
 const fileToGenerativePart = async (file: File): Promise<Part> => {
   if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {

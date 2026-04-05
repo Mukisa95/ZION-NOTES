@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { generateText } from '../services/geminiService';
+import { generateText } from '../services/aiService';
 import { CheckIcon, ListIcon, SparklesIcon, XIcon } from './icons';
 
 export interface Heading {

@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, FormEvent } from 'react';
-import { Chat, Part } from "@google/genai";
+import { GenericChatSession } from '../types';
 import { ChatMessage } from '../types';
-import { createChatSession } from '../services/geminiService';
+import { createChatSession } from '../services/aiService';
 import { XIcon, SendIcon, PlusIcon, BotIcon, UserIcon, PaperClipIcon, SparklesIcon } from './icons';
 import { MarkdownRenderer } from './MarkdownRenderer';
+
 
 interface ChatWindowProps {
   addTextToNote: (text: string) => void;
@@ -23,7 +24,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ addTextToNote }) => {
   const [input, setInput] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [attachedImages, setAttachedImages] = useState<{ file: File; dataUrl: string }[]>([]);
-  const chatRef = useRef<Chat | null>(null);
+  const chatRef = useRef<GenericChatSession | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -86,25 +88,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ addTextToNote }) => {
 
     try {
       if (chatRef.current) {
-        const parts: Part[] = [{ text: input }];
-        if (imagesToSend) {
-            imagesToSend.forEach(image => {
-                parts.push({
-                    inlineData: {
-                        mimeType: image.mimeType,
-                        data: image.data
-                    }
-                });
-            });
-        }
-        
-        const stream = await chatRef.current.sendMessageStream({ message: parts });
-        
+        const stream = chatRef.current.sendMessageStream({
+          message: input,
+          images: imagesToSend ?? undefined,
+        });
+
         let modelResponse = '';
         setMessages(prev => [...prev, { role: 'model', text: '' }]);
 
-        for await (const chunk of stream) {
-          modelResponse += chunk.text;
+        for await (const delta of stream) {
+          modelResponse += delta;
           setMessages(prev => {
             const newMessages = [...prev];
             newMessages[newMessages.length - 1].text = modelResponse;
