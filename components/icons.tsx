@@ -480,3 +480,33 @@ export const TableOfContentsIcon: React.FC<IconProps> = (props) => (
         <circle cx="4" cy="18" r="1.5" fill="currentColor" />
     </svg>
 );
+
+export const BeakerIcon: React.FC<IconProps> = (props) => (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 0 1-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 0 1 4.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15M14.25 3.104c.251.023.501.05.75.082M19.8 15a2.25 2.25 0 0 1 .45 1.318 2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 16.318a2.25 2.25 0 0 1 .45-1.318L9 8.5M14.25 3h-4.5" />
+    </svg>
+);
+
+export const MicroscopeIcon: React.FC<IconProps> = (props) => (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.894 20.567 16.5 21.75l-.393-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.393a2.25 2.25 0 0 0 1.423-1.423l.394-1.184.393 1.184a2.25 2.25 0 0 0 1.423 1.423l1.183.393-1.183.394a2.25 2.25 0 0 0-1.423 1.422Z" />
+    </svg>
+);
+
+export const PanelLeftCloseIcon: React.FC<IconProps> = (props) => (
+  <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}>
+    <rect width="18" height="18" x="3" y="3" rx="2" />
+    <path d="M9 3v18" />
+    <path d="m16 15-3-3 3-3" />
+  </svg>
+);
+
+export const PanelLeftOpenIcon: React.FC<IconProps> = (props) => (
+  <svg {...props} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}>
+    <rect width="18" height="18" x="3" y="3" rx="2" />
+    <path d="M9 3v18" />
+    <path d="m14 9 3 3-3 3" />
+  </svg>
+);

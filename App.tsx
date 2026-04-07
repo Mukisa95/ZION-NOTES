@@ -21,6 +21,10 @@ import { CompressionDialog } from './components/CompressionDialog';
 import { CompressionIndicator } from './components/CompressionIndicator';
 import TranscriptionScreen from './components/TranscriptionScreen';
 import { TableOfContentsModal } from './components/TableOfContentsModal';
+import { ResearchWorkspace } from './components/ResearchWorkspace';
+import { ResearchProjectSetupModal } from './components/ResearchProjectSetupModal';
+import { ResearchProject, ResearchProjectMeta } from './types';
+import { saveResearchProjectToFirestore } from './services/researchFirestoreService';
 import { useAuth } from './contexts/AuthContext';
 import { saveDocument, updateDocument, getCurrentDocumentId, setCurrentDocumentId, SavedDocument } from './services/documentStorage';
 import { Ware, deleteWare } from './services/wareStorage';
@@ -457,6 +461,7 @@ const App: React.FC = () => {
   const [isTableOfContentsOpen, setIsTableOfContentsOpen] = useState(false);
   const [isTranscriptionOpen, setIsTranscriptionOpen] = useState(false);
   const [transcriptionPreview, setTranscriptionPreview] = useState<{ html: string; errors: { original: string; suggestion: string }[] } | null>(null);
+  const [isResearchSetupOpen, setIsResearchSetupOpen] = useState(false);
 
   // Get active tab
   const activeTab = activeTabId ? openTabs.find(tab => tab.id === activeTabId) : null;
@@ -850,11 +855,70 @@ const App: React.FC = () => {
     };
     setOpenTabs([...openTabs, newTab]);
     setActiveTabId(newTab.id);
-    setShowLandingPage(false); // Switch to editor view
+    setShowLandingPage(false);
   };
 
   const handleCreateNewDocument = () => {
     handleNewTab();
+  };
+
+  // ─── Research handlers ────────────────────────────────────────────────────────
+
+  const handleNewResearch = () => {
+    setIsResearchSetupOpen(true);
+  };
+
+  const handleResearchSetupConfirm = async (meta: ResearchProjectMeta) => {
+    setIsResearchSetupOpen(false);
+    const projectId = `rp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const now = Date.now();
+    const project: ResearchProject = {
+      id: projectId,
+      meta,
+      resources: [],
+      documentContent: '',
+      userId: user?.uid || '',
+      createdAt: now,
+      updatedAt: now,
+    };
+    try {
+      if (user && !incognitoMode) {
+        await saveResearchProjectToFirestore(user.uid, project);
+      }
+    } catch (e) {
+      console.error('Failed to save research project to Firestore:', e);
+    }
+    const newTab: DocumentTab = {
+      id: projectId,
+      name: meta.projectName,
+      content: '',
+      type: 'research',
+      researchProjectId: projectId,
+    };
+    setOpenTabs(prev => [...prev, newTab]);
+    setActiveTabId(projectId);
+    setShowLandingPage(false);
+  };
+
+  const handleOpenResearch = (projectId: string) => {
+    // Check if already open
+    const existing = openTabs.find(t => t.researchProjectId === projectId);
+    if (existing) {
+      setActiveTabId(existing.id);
+      setShowLandingPage(false);
+      return;
+    }
+    // Open a new research tab
+    const newTab: DocumentTab = {
+      id: projectId,
+      name: projectId, // ResearchWorkspace loads and shows actual name
+      content: '',
+      type: 'research',
+      researchProjectId: projectId,
+    };
+    setOpenTabs(prev => [...prev, newTab]);
+    setActiveTabId(projectId);
+    setShowLandingPage(false);
   };
 
   const handleSaveDocumentLocally = async (name: string) => {
@@ -1249,6 +1313,8 @@ const App: React.FC = () => {
           onOpenDocument={handleOpenDocument}
           onOpenDocuments={handleOpenDocuments}
           onCreateNew={handleCreateNewDocument}
+          onCreateNewResearch={handleNewResearch}
+          onOpenResearch={handleOpenResearch}
           userId={user?.uid}
           incognitoMode={incognitoMode}
           user={user}
@@ -1431,71 +1497,86 @@ const App: React.FC = () => {
             onTabClose={handleTabClose}
             onTabRename={handleTabRename}
             onNewTab={handleNewTab}
+            onNewResearch={handleNewResearch}
           />
 
           {/* Third Row: Formatting Toolbar */}
           <div className="px-4 py-2">
-            <FormattingToolbar
-              onFormat={(type, value) => editorRef.current?.format(type, value)}
-              onClear={() => editorRef.current?.clear()}
-              onInsertList={handleInsertList}
-              onOpenSelectionMenu={() => {
-                // Trigger context menu through the editor
-                editorRef.current?.openSelectionMenu();
-              }}
-              onUndo={handleUndo}
-              onRedo={handleRedo}
-            />
-          </div>
+              <FormattingToolbar
+                onFormat={(type, value) => editorRef.current?.format(type, value)}
+                onClear={() => editorRef.current?.clear()}
+                onInsertList={handleInsertList}
+                onOpenSelectionMenu={() => {
+                  editorRef.current?.openSelectionMenu();
+                }}
+                onUndo={handleUndo}
+                onRedo={handleRedo}
+              />
+            </div>
         </header>
 
-        <main ref={mainContainerRef} className="flex-1 flex flex-col items-center py-8 px-4 overflow-y-auto">
-          <div className="w-full max-w-4xl relative">
-             {isFindVisible && (
-              <FindAndReplaceBar
-                onFind={handleFind}
-                onNavigate={handleFindNavigate}
-                onClose={handleCloseFind}
-                results={searchResults}
-              />
-            )}
-            <NoteEditor
-              ref={editorRef}
-              content={noteContent}
-              setContent={setNoteContent}
-              scrollContainerRef={mainContainerRef}
+        {/* Main content — swap NoteEditor for ResearchWorkspace on research tabs */}
+        {activeTab?.type === 'research' && activeTab.researchProjectId ? (
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <ResearchWorkspace
+              key={activeTab.researchProjectId}
+              projectId={activeTab.researchProjectId}
+              userId={user?.uid}
+              editorRef={editorRef}
               zoomLevel={zoomLevel}
               onToggleFind={setIsFindVisible}
-              onOpenHelpMeThink={() => {
-                setIsNewBrainstormSession(true);
-                setIsHelpMeThinkModalOpen(true);
-              }}
-              availableDocuments={openTabs.map(tab => ({ id: tab.id, name: tab.name }))}
-              currentDocumentId={activeTabId || undefined}
-              onSwitchDocument={(documentId: string) => {
-                // Just switch to the document without inserting
-                if (documentId !== activeTabId) {
-                  setActiveTabId(documentId);
-                  // Clear any pending insertion when switching
-                  setPendingInsertion(null);
-                }
-              }}
-              onInsertToDocument={async (documentId: string, content: string) => {
-                // Switch to the target document first if needed
-                if (documentId !== activeTabId) {
-                  setActiveTabId(documentId);
-                  // Wait for the tab to switch and editor to be ready
-                  setTimeout(() => {
-                    setPendingInsertion({ documentId, content });
-                  }, 200);
-                } else {
-                  // Already on the target document, insert immediately
-                  setPendingInsertion({ documentId, content });
-                }
-              }}
+              isFindVisible={isFindVisible}
+              searchResults={searchResults}
+              onFind={handleFind}
+              onNavigate={handleFindNavigate}
+              onCloseFind={handleCloseFind}
+              setCounts={setCounts}
             />
           </div>
-        </main>
+        ) : (
+          <main ref={mainContainerRef} className="flex-1 flex flex-col items-center py-8 px-4 overflow-y-auto">
+            <div className="w-full max-w-4xl relative">
+              {isFindVisible && (
+                <FindAndReplaceBar
+                  onFind={handleFind}
+                  onNavigate={handleFindNavigate}
+                  onClose={handleCloseFind}
+                  results={searchResults}
+                />
+              )}
+              <NoteEditor
+                ref={editorRef}
+                content={noteContent}
+                setContent={setNoteContent}
+                scrollContainerRef={mainContainerRef}
+                zoomLevel={zoomLevel}
+                onToggleFind={setIsFindVisible}
+                onOpenHelpMeThink={() => {
+                  setIsNewBrainstormSession(true);
+                  setIsHelpMeThinkModalOpen(true);
+                }}
+                availableDocuments={openTabs.map(tab => ({ id: tab.id, name: tab.name }))}
+                currentDocumentId={activeTabId || undefined}
+                onSwitchDocument={(documentId: string) => {
+                  if (documentId !== activeTabId) {
+                    setActiveTabId(documentId);
+                    setPendingInsertion(null);
+                  }
+                }}
+                onInsertToDocument={async (documentId: string, content: string) => {
+                  if (documentId !== activeTabId) {
+                    setActiveTabId(documentId);
+                    setTimeout(() => {
+                      setPendingInsertion({ documentId, content });
+                    }, 200);
+                  } else {
+                    setPendingInsertion({ documentId, content });
+                  }
+                }}
+              />
+            </div>
+          </main>
+        )}
 
         <StatusToolbar
             counts={counts}
@@ -1551,6 +1632,14 @@ const App: React.FC = () => {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
       />
+
+      {/* Research Project Setup Modal */}
+      {isResearchSetupOpen && (
+        <ResearchProjectSetupModal
+          onConfirm={handleResearchSetupConfirm}
+          onCancel={() => setIsResearchSetupOpen(false)}
+        />
+      )}
 
       <SaveDialog
         isOpen={saveDialogOpen}

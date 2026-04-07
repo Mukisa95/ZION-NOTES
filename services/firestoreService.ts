@@ -140,7 +140,10 @@ export const getAllDocumentsFromFirestore = async (userId: string): Promise<Save
     
     querySnapshot.forEach((docSnapshot) => {
       const data = docSnapshot.data();
-      console.log('Processing document:', docSnapshot.id, data.name, 'Compressed:', data.content.startsWith('GZIP:') || data.content.startsWith('LZ:'));
+      // Skip if this is a research project stored in the documents collection
+      if (docSnapshot.id.startsWith('rp_') || data.content === undefined) return;
+      
+      console.log('Processing document:', docSnapshot.id, data.name, 'Compressed:', data.content?.startsWith('GZIP:') || data.content?.startsWith('LZ:'));
       documents.push({
         id: docSnapshot.id,
         name: data.name,

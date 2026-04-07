@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { PlusIcon, DocumentIcon, TrashIcon, SearchIcon, CloudIcon, SettingsIcon, FolderIcon, CheckIcon, EditIcon } from './icons';
+import React, { useState, useEffect, useRef } from 'react';
+import { PlusIcon, DocumentIcon, TrashIcon, SearchIcon, CloudIcon, SettingsIcon, FolderIcon, CheckIcon, EditIcon, BeakerIcon } from './icons';
+import { ResearchProject } from '../types';
+import { getAllResearchProjectsFromFirestore, deleteResearchProjectFromFirestore } from '../services/researchFirestoreService';
 import { SavedDocument, getAllDocuments, saveDocument } from '../services/documentStorage';
 import { getAllDocumentsFromFirestore, deleteDocumentFromFirestore, saveDocumentToFirestore } from '../services/firestoreService';
 import { UserProfile } from './UserProfile';
@@ -18,6 +20,8 @@ interface DocumentLandingPageProps {
     onOpenDocument: (doc: SavedDocument) => void;
     onOpenDocuments: (docs: SavedDocument[]) => void;
     onCreateNew: () => void;
+    onCreateNewResearch: () => void;
+    onOpenResearch?: (projectId: string) => void;
     userId?: string | null;
     incognitoMode?: boolean;
     user?: any; // Firebase user object
@@ -27,6 +31,8 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
     onOpenDocument,
     onOpenDocuments,
     onCreateNew,
+    onCreateNewResearch,
+    onOpenResearch,
     userId,
     incognitoMode = false,
     user
@@ -50,11 +56,48 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
     const [moveToWareDialogOpen, setMoveToWareDialogOpen] = useState(false);
     const [filteredWares, setFilteredWares] = useState<Ware[]>([]);
     const [wareMatchedDocs, setWareMatchedDocs] = useState<Record<string, SavedDocument[]>>({});
+    const [showNewMenu, setShowNewMenu] = useState(false);
+    const [researchProjects, setResearchProjects] = useState<ResearchProject[]>([]);
+    const newMenuRef = useRef<HTMLDivElement>(null);
+    const newBtnRef = useRef<HTMLButtonElement>(null);
 
     useEffect(() => {
         loadDocuments();
         loadWares();
+        loadResearchProjects();
     }, [userId, incognitoMode]);
+
+    useEffect(() => {
+        if (!showNewMenu) return;
+        const handle = (e: MouseEvent) => {
+            if (
+                newMenuRef.current && !newMenuRef.current.contains(e.target as Node) &&
+                newBtnRef.current && !newBtnRef.current.contains(e.target as Node)
+            ) {
+                setShowNewMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handle);
+        return () => document.removeEventListener('mousedown', handle);
+    }, [showNewMenu]);
+
+    const loadResearchProjects = async () => {
+        if (!userId) return;
+        try {
+            const projects = await getAllResearchProjectsFromFirestore(userId);
+            setResearchProjects(projects);
+        } catch { /* non-critical */ }
+    };
+
+    const handleDeleteResearchProject = async (projectId: string) => {
+        if (!userId) return;
+        try {
+            await deleteResearchProjectFromFirestore(userId, projectId);
+            setResearchProjects(prev => prev.filter(p => p.id !== projectId));
+        } catch (e: any) {
+            alert('Error deleting research project: ' + e.message);
+        }
+    };
 
     // Filter documents and WARES based on search query
     useEffect(() => {
@@ -512,13 +555,45 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                                 <FolderIcon className="h-5 w-5" />
                             </button>
                             
-                            <button
-                                onClick={onCreateNew}
-                                className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 active:scale-95 icon-glossy"
-                                title="New Document"
-                            >
-                                <PlusIcon className="h-5 w-5" />
-                            </button>
+                            <div className="relative">
+                                <button
+                                    ref={newBtnRef}
+                                    onClick={() => setShowNewMenu(v => !v)}
+                                    className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 active:scale-95 icon-glossy"
+                                    title="New Document or Research"
+                                >
+                                    <PlusIcon className="h-5 w-5" />
+                                </button>
+                                {showNewMenu && (
+                                    <div
+                                        ref={newMenuRef}
+                                        className="absolute right-0 top-full mt-2 w-52 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50"
+                                    >
+                                        <div className="p-1.5 space-y-0.5">
+                                            <button
+                                                onClick={() => { setShowNewMenu(false); onCreateNew(); }}
+                                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-left"
+                                            >
+                                                <DocumentIcon className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                                                <div>
+                                                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Document</p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">Blank note editor</p>
+                                                </div>
+                                            </button>
+                                            <button
+                                                onClick={() => { setShowNewMenu(false); onCreateNewResearch(); }}
+                                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-all text-left"
+                                            >
+                                                <BeakerIcon className="h-4 w-4 text-violet-500 flex-shrink-0" />
+                                                <div>
+                                                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Research</p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">AI-assisted workspace</p>
+                                                </div>
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -898,10 +973,51 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                     </div>
                 )}
                 </div>
+
+                {/* Research Projects Section */}
+                {researchProjects.length > 0 && (
+                    <div className="mt-8">
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                            <BeakerIcon className="h-5 w-5 text-violet-500" />
+                            Research Projects
+                        </h2>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {researchProjects.map(proj => (
+                                <div
+                                    key={proj.id}
+                                    onClick={() => onOpenResearch && onOpenResearch(proj.id)}
+                                    className="group relative flex flex-col gap-2 p-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-violet-400 dark:hover:border-violet-600 hover:shadow-md transition-all cursor-pointer"
+                                >
+                                    <div className="flex items-start justify-between gap-2">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <div className="p-1.5 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex-shrink-0">
+                                                <BeakerIcon className="h-3.5 w-3.5 text-white" />
+                                            </div>
+                                            <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{proj.meta.projectName}</p>
+                                        </div>
+                                        <button
+                                            onClick={e => { e.stopPropagation(); handleDeleteResearchProject(proj.id); }}
+                                            className="p-1 rounded text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
+                                        >
+                                            <TrashIcon className="h-3.5 w-3.5" />
+                                        </button>
+                                    </div>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">by {proj.meta.author}</p>
+                                    <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+                                        <span>{proj.resources.length} resource{proj.resources.length !== 1 ? 's' : ''}</span>
+                                        <span>•</span>
+                                        <span>{new Date(proj.updatedAt).toLocaleDateString()}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
-            
+        
             {/* Auth and Settings Modals */}
             <AuthModal
+
                 isOpen={isAuthModalOpen}
                 onClose={() => setIsAuthModalOpen(false)}
             />

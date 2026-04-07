@@ -12,5 +12,11 @@ service cloud.firestore {
       allow read, write, delete: if request.auth != null && request.auth.uid == resource.data.userId;
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
     }
+    
+    // Allow authenticated users to read, write, and delete their own Research Projects
+    match /researchProjects/{projectId} {
+      allow read, write, delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+    }
   }
 }
