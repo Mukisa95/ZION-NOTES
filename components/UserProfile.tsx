@@ -29,23 +29,20 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onOpenSettings }) => {
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
+        className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 shrink-0 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 focus:outline-none"
         title={user.displayName || user.email || 'User Profile'}
       >
         {user.photoURL ? (
           <img 
             src={user.photoURL} 
             alt={user.displayName || 'User'} 
-            className="w-9 h-9 sm:w-8 sm:h-8 rounded-full border-2 border-blue-500 shadow-md"
+            className="w-10 h-10 rounded-full border-2 border-blue-500 shadow-sm object-cover"
           />
         ) : (
-          <div className="w-9 h-9 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm">
             <UserIcon className="w-5 h-5 text-white" />
           </div>
         )}
-        <span className="hidden md:inline text-sm font-medium text-gray-700 dark:text-gray-200">
-          {user.displayName || user.email?.split('@')[0]}
-        </span>
       </button>
 
       {isOpen && (

@@ -1,5 +1,5 @@
 import { exportAsDocx } from '../services/docxService';
-
+import { ResearchProject } from '../types';
 /**
  * Modern File System Access API helper
  * Shows native "Save As" dialog with location and filename picker
@@ -308,4 +308,36 @@ export const exportAsPdf = (content: string, filename: string) => {
  */
 export const exportAsWord = async (content: string, filename: string, fileHandle?: any) => {
     await exportAsDocx(content, filename, fileHandle);
+};
+
+/**
+ * Builds a beautifully formatted HTML string for a Research Project export.
+ */
+export const buildResearchExportHtml = (project: ResearchProject): string => {
+    const authorName = project.meta.author || 'Unknown Author';
+    const projectName = project.meta.projectName || 'Research Document';
+    
+    // Use very basic, top-level tags ensuring high compatibility with htmlToDocxElements
+    const headerHtml = `
+      <div style="text-align: center; margin-bottom: 2.5em; padding-bottom: 1.5em; border-bottom: 2px solid #6366f1;">
+      <h1 style="color: #4f46e5; margin-bottom: 0.2em;">${projectName}</h1>
+      <p style="color: #6b7280; font-size: 1.25em; margin-top: 0;">Author: <strong style="color: #374151;">${authorName}</strong></p>
+      </div>
+    `;
+
+    const contentHtml = project.documentContent || '<p>No document content written yet.</p>';
+
+    let resourcesHtml = '';
+    if (project.resources && project.resources.length > 0) {
+        const listItems = project.resources.map(r => 
+            `<li><strong>${r.name}</strong> <span>(${r.category})</span></li>`
+        ).join('');
+        
+        resourcesHtml = `
+          <h2 style="color: #4f46e5; margin-top: 3em; border-top: 2px dashed #e5e7eb; padding-top: 1em;">References & Resources Used</h2>
+          <ul>${listItems}</ul>
+        `;
+    }
+
+    return `<div>${headerHtml}${contentHtml}${resourcesHtml}</div>`;
 };

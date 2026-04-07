@@ -5,7 +5,7 @@ import { generateTest } from '../../services/researchAiService';
 
 interface QaConfigModalProps {
   resources: ResearchResource[];
-  onInsertTest: (html: string) => void;
+  onInsertTest: (html: string, heading: string) => void;
   onStartQuiz: (config: QaConfig) => void;
   onClose: () => void;
 }
@@ -62,7 +62,10 @@ export const QaConfigModal: React.FC<QaConfigModalProps> = ({
     try {
       if (mode === 'test') {
         const html = await generateTest(config, resources);
-        onInsertTest(html);
+        // Build a heading
+        const sourceLabel = truthSource === 'topic' && topic ? `– ${topic}` : '';
+        const heading = `Questions & Answers${sourceLabel}`;
+        onInsertTest(html, heading);
         onClose();
       } else {
         onStartQuiz(config);

@@ -24,6 +24,10 @@ interface DocumentPaneProps {
   onNavigate?: (direction: 'next' | 'prev') => void;
   onCloseFind?: () => void;
   setCounts?: (counts: { words: number; characters: number }) => void;
+  isTocOpen?: boolean;
+  onCloseToc?: () => void;
+  isMobileOutline?: boolean;
+  onMobileOutlineClose?: () => void;
 }
 
 interface MenuState {
@@ -53,11 +57,34 @@ export const DocumentPane: React.FC<DocumentPaneProps> = ({
   onFind,
   onNavigate,
   onCloseFind,
-  setCounts
+  setCounts,
+  isTocOpen = false,
+  onCloseToc,
+  isMobileOutline = false,
+  onMobileOutlineClose,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const localEditorRef = useRef<NoteEditorHandles>(null);
   const actualEditorRef = editorRef || localEditorRef;
+  const [tocHeadings, setTocHeadings] = useState<{ id: string; text: string; level: number }[]>([]);
+
+  // Helper: format a timestamp for section headings
+  const getTimestamp = () => {
+    const now = new Date();
+    return now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      + ' · ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  // Helper: wrap HTML with a labelled heading section before inserting
+  const wrapWithHeading = (html: string, heading: string): string => {
+    const ts = getTimestamp();
+    const headingId = `section-${Date.now()}`;
+    return [
+      `<h2 id="${headingId}" style="margin-top:2em;padding-top:1em;border-top:2px solid #e5e7eb;color:#4f46e5;font-size:1.25em;font-weight:700;">${heading}</h2>`,
+      `<p style="margin-top:-0.5em;margin-bottom:1em;font-size:0.8em;color:#9ca3af;font-style:italic;">${ts}</p>`,
+      html,
+    ].join('');
+  };
 
   const [menu, setMenu] = useState<MenuState>({ visible: false, x: 0, y: 0 });
   const [bubble, setBubble] = useState<BubbleState>({ visible: false, x: 0, y: 0, html: '' });
@@ -65,6 +92,7 @@ export const DocumentPane: React.FC<DocumentPaneProps> = ({
   const [showQaConfig, setShowQaConfig] = useState(false);
   const [quizConfig, setQuizConfig] = useState<QaConfig | null>(null);
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const pointerStart = useRef({ x: 0, y: 0 });
 
   // Sync content into counts whenever it changes (since App relies on it for the Status Toolbar)
   useEffect(() => {
@@ -91,13 +119,36 @@ export const DocumentPane: React.FC<DocumentPaneProps> = ({
 
   const handlePointerDownCapture = (e: React.PointerEvent) => {
     if (!isMain) return;
+    if (e.pointerType !== 'touch') return;
+    pointerStart.current = { x: e.clientX, y: e.clientY };
     longPressTimer.current = setTimeout(() => {
       setMenu({ visible: true, x: e.clientX, y: e.clientY });
+      longPressTimer.current = null;
     }, 600);
   };
   
+  const handlePointerMoveCapture = (e: React.PointerEvent) => {
+    if (!longPressTimer.current) return;
+    const dx = e.clientX - pointerStart.current.x;
+    const dy = e.clientY - pointerStart.current.y;
+    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
   const handlePointerUpCapture = () => {
-    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+    }
+  };
+
+  const handlePointerCancelCapture = () => {
+    if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+    }
   };
 
   // Selection → bubble (for main doc only, NoteEditor handles regular selection button)
@@ -150,14 +201,41 @@ export const DocumentPane: React.FC<DocumentPaneProps> = ({
     setBubble(b => ({ ...b, visible: false }));
   };
 
-  // Insert AI output at end of document
-  const handleInsert = (html: string) => {
+  // Insert AI output at end of document (with optional heading)
+  const handleInsert = (html: string, heading?: string) => {
+    const finalHtml = heading ? wrapWithHeading(html, heading) : html;
     if (actualEditorRef.current?.appendText) {
-        actualEditorRef.current.appendText(html);
+        actualEditorRef.current.appendText(finalHtml);
     } else {
-        onChange(content + html);
+        onChange(content + finalHtml);
     }
+    // Refresh TOC after a short delay
+    setTimeout(() => refreshToc(), 300);
   };
+
+  // Refresh the headings list from the live DOM
+  const refreshToc = useCallback(() => {
+    const editorEl = containerRef.current?.querySelector('[contenteditable="true"]');
+    if (!editorEl) return;
+    const headings: { id: string; text: string; level: number }[] = [];
+    editorEl.querySelectorAll('h1,h2,h3').forEach((el, idx) => {
+      const tagLevel = parseInt(el.tagName[1]);
+      if (!el.id) (el as HTMLElement).id = `toc-heading-${idx}-${Date.now()}`;
+      headings.push({ id: el.id, text: el.textContent?.trim() || '', level: tagLevel });
+    });
+    setTocHeadings(headings);
+  }, []);
+
+  // Refresh TOC whenever content changes
+  useEffect(() => {
+    const timer = setTimeout(() => refreshToc(), 200);
+    return () => clearTimeout(timer);
+  }, [content, refreshToc]);
+
+  // Also refresh when TOC panel opens
+  useEffect(() => {
+    if (isTocOpen) refreshToc();
+  }, [isTocOpen, refreshToc]);
 
   // Simplify action from Smart Space
   const handleSimplify = async () => {
@@ -171,7 +249,7 @@ export const DocumentPane: React.FC<DocumentPaneProps> = ({
   };
 
   const handleQuizComplete = (reportHtml: string) => {
-    handleInsert(reportHtml);
+    handleInsert(reportHtml, 'Quiz Report');
     setQuizConfig(null);
   };
 
@@ -193,12 +271,95 @@ export const DocumentPane: React.FC<DocumentPaneProps> = ({
         </span>
       </div>
 
-      {/* Editor area - Wraps NoteEditor to capture events */}
+      {/* Layout: document + optional TOC panel */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* Mobile Outline view – full-width TOC list shown instead of editor */}
+        {isMobileOutline && (
+          <div className="md:hidden flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+              <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Document Outline</span>
+            </div>
+            <div className="flex-1 overflow-y-auto py-2">
+              {tocHeadings.length === 0 ? (
+                <p className="text-xs text-gray-400 dark:text-gray-500 px-4 py-8 text-center">
+                  No sections yet.<br/>Generate notes, Q&amp;A, or summaries to build an outline.
+                </p>
+              ) : (
+                tocHeadings.map(h => (
+                  <button
+                    key={h.id}
+                    onClick={() => {
+                      // Switch to document tab then scroll
+                      onMobileOutlineClose?.();
+                      setTimeout(() => {
+                        const el = containerRef.current?.querySelector(`#${CSS.escape(h.id)}`);
+                        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 100);
+                    }}
+                    className={`w-full text-left px-4 py-3 text-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors border-b border-gray-100 dark:border-gray-800 ${
+                      h.level === 1 ? 'font-bold text-gray-800 dark:text-gray-100' :
+                      h.level === 2 ? 'font-semibold text-gray-700 dark:text-gray-200 pl-6' :
+                      'text-gray-500 dark:text-gray-400 pl-10'
+                    }`}
+                    title={h.text}
+                  >
+                    {h.level > 1 && <span className="text-indigo-300 dark:text-indigo-600 mr-2">{h.level === 2 ? '◆' : '›'}</span>}
+                    {h.text}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TOC side panel – desktop only */}
+        {isTocOpen && (
+          <div className="hidden md:flex w-64 shrink-0 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+              <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">Document Outline</span>
+              <button
+                onClick={onCloseToc}
+                className="p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all text-sm"
+              >✕</button>
+            </div>
+            <div className="flex-1 overflow-y-auto py-2">
+              {tocHeadings.length === 0 ? (
+                <p className="text-xs text-gray-400 dark:text-gray-500 px-4 py-6 text-center">
+                  No sections yet.<br/>Generate notes, Q&amp;A, or summaries to build an outline.
+                </p>
+              ) : (
+                tocHeadings.map(h => (
+                  <button
+                    key={h.id}
+                    onClick={() => {
+                      const el = containerRef.current?.querySelector(`#${CSS.escape(h.id)}`);
+                      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }}
+                    className={`w-full text-left px-4 py-2 text-xs hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors truncate ${
+                      h.level === 1 ? 'font-bold text-gray-800 dark:text-gray-100' :
+                      h.level === 2 ? 'font-semibold text-gray-700 dark:text-gray-200 pl-4' :
+                      'text-gray-500 dark:text-gray-400 pl-6'
+                    }`}
+                    title={h.text}
+                  >
+                    {h.level > 1 && <span className="text-gray-300 dark:text-gray-600 mr-1">{h.level === 2 ? '◆' : '›'}</span>}
+                    {h.text}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Editor area – hidden on mobile when outline tab is active */}
       <div 
-        className="flex-1 overflow-y-auto relative w-full h-full"
+        className={`flex-1 overflow-y-auto relative w-full h-full ${isMobileOutline ? 'hidden md:block' : ''}`}
         onContextMenuCapture={handleContextMenuCapture}
         onPointerDownCapture={handlePointerDownCapture}
+        onPointerMoveCapture={handlePointerMoveCapture}
         onPointerUpCapture={handlePointerUpCapture}
+        onPointerCancelCapture={handlePointerCancelCapture}
         onMouseUpCapture={handleMouseUpCapture}
       >
         <div className="w-full max-w-4xl mx-auto h-full flex flex-col p-4">
@@ -213,6 +374,7 @@ export const DocumentPane: React.FC<DocumentPaneProps> = ({
             />
         </div>
       </div>
+      </div>{/* end layout flex row */}
 
       {/* Smart Space Menu */}
       {menu.visible && isMain && (
@@ -242,7 +404,7 @@ export const DocumentPane: React.FC<DocumentPaneProps> = ({
       {showNoteConfig && isMain && (
         <NoteConfigModal
           resources={resources}
-          onInsert={handleInsert}
+          onInsert={(html, heading) => handleInsert(html, heading)}
           onClose={() => setShowNoteConfig(false)}
         />
       )}
@@ -251,7 +413,7 @@ export const DocumentPane: React.FC<DocumentPaneProps> = ({
       {showQaConfig && isMain && (
         <QaConfigModal
           resources={resources}
-          onInsertTest={html => { handleInsert(html); setShowQaConfig(false); }}
+          onInsertTest={(html, heading) => { handleInsert(html, heading); setShowQaConfig(false); }}
           onStartQuiz={cfg => { setQuizConfig(cfg); setShowQaConfig(false); }}
           onClose={() => setShowQaConfig(false)}
         />

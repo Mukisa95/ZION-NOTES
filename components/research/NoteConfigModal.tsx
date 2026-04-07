@@ -5,7 +5,7 @@ import { generateNotes } from '../../services/researchAiService';
 
 interface NoteConfigModalProps {
   resources: ResearchResource[];
-  onInsert: (html: string) => void;
+  onInsert: (html: string, heading: string) => void;
   onClose: () => void;
 }
 
@@ -96,7 +96,11 @@ export const NoteConfigModal: React.FC<NoteConfigModalProps> = ({
         customInstructions: customInstructions.trim()
       };
       const html = await generateNotes(config, resources);
-      onInsert(html);
+      // Build a meaningful heading from config
+      const noteTypeLabel = noteType === 'deep' ? 'Deep Notes' : noteType === 'context' ? 'Context Notes' : 'Exemplary Notes';
+      const topicLabel = topic.trim() ? `– ${topic.trim()}` : '';
+      const heading = `${noteTypeLabel}${topicLabel}`;
+      onInsert(html, heading);
       onClose();
     } catch (e: any) {
       setError(e?.message || 'Failed to generate notes. Check your API key in Settings.');

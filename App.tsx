@@ -462,9 +462,15 @@ const App: React.FC = () => {
   const [isTranscriptionOpen, setIsTranscriptionOpen] = useState(false);
   const [transcriptionPreview, setTranscriptionPreview] = useState<{ html: string; errors: { original: string; suggestion: string }[] } | null>(null);
   const [isResearchSetupOpen, setIsResearchSetupOpen] = useState(false);
+  const [activeResearchProject, setActiveResearchProject] = useState<ResearchProject | null>(null);
+  const [isMyProjectsOpen, setIsMyProjectsOpen] = useState(false);
+  const [myProjects, setMyProjects] = useState<ResearchProject[]>([]);
+  const [myProjectsLoading, setMyProjectsLoading] = useState(false);
+  const [isResearchTocOpen, setIsResearchTocOpen] = useState(false);
 
   // Get active tab
   const activeTab = activeTabId ? openTabs.find(tab => tab.id === activeTabId) : null;
+  const isResearchTab = activeTab?.type === 'research';
   const noteContent = activeTab?.content || '<p><br></p>';
 
   useClickOutside(exportMenuRef, () => setIsExportMenuOpen(false));
@@ -597,6 +603,34 @@ const App: React.FC = () => {
   };
   
   const handleExport = async (format: 'pdf' | 'html' | 'md' | 'txt' | 'docx') => {
+      const activeCurrentTab = openTabs.find(t => t.id === activeTabId);
+      const isResearch = !selectedContentForExport && activeCurrentTab?.type === 'research' && activeResearchProject;
+
+      // ── Research Project: use dedicated export functions ──────────────────
+      if (isResearch && activeResearchProject) {
+          setIsExportMenuOpen(false);
+
+          if (format === 'docx') {
+              const { exportResearchAsDocx } = await import('./services/docxService');
+              await exportResearchAsDocx(activeResearchProject);
+              return;
+          }
+
+          if (format === 'pdf') {
+              const { exportResearchAsPdf } = await import('./services/docxService');
+              exportResearchAsPdf(activeResearchProject);
+              return;
+          }
+
+          // For html / md / txt — build HTML then fall through to the save dialog
+          const { buildResearchExportHtml } = await import('./utils/exportUtils');
+          const htmlContent = buildResearchExportHtml(activeResearchProject);
+          setPendingExport({ format, content: htmlContent });
+          setSaveDialogOpen(true);
+          return;
+      }
+
+      // ── Normal Document export ────────────────────────────────────────────
       const contentToExport = selectedContentForExport || noteContent;
       setPendingExport({ format, content: contentToExport });
       setIsExportMenuOpen(false);
@@ -626,7 +660,7 @@ const App: React.FC = () => {
 
       // If using native picker, get file handle FIRST (must be in user gesture context)
       let fileHandle: any = null;
-      if (useNativePicker && 'showSaveFilePicker' in window) {
+      if (useNativePicker && 'showSaveFilePicker' in window && format !== 'pdf') {
           try {
               const mimeTypes: Record<string, string> = {
                   pdf: 'application/pdf',
@@ -660,7 +694,10 @@ const App: React.FC = () => {
       // Now generate and save the file
       switch (format) {
           case 'pdf':
+              // Override title explicitly for the print dialog so it defaults to the correct filename
+              document.title = finalFilename.replace('.pdf', '');
               exportAsPdf(content, finalFilename);
+              setTimeout(() => { document.title = 'AI Note Taker'; }, 2000);
               break;
           case 'html':
               await exportAsHtml(content, finalFilename, fileHandle);
@@ -900,9 +937,9 @@ const App: React.FC = () => {
     setShowLandingPage(false);
   };
 
-  const handleOpenResearch = (projectId: string) => {
+  const handleOpenResearch = (project: ResearchProject) => {
     // Check if already open
-    const existing = openTabs.find(t => t.researchProjectId === projectId);
+    const existing = openTabs.find(t => t.researchProjectId === project.id);
     if (existing) {
       setActiveTabId(existing.id);
       setShowLandingPage(false);
@@ -910,14 +947,14 @@ const App: React.FC = () => {
     }
     // Open a new research tab
     const newTab: DocumentTab = {
-      id: projectId,
-      name: projectId, // ResearchWorkspace loads and shows actual name
+      id: project.id,
+      name: project.meta.projectName, // Shows actual project name
       content: '',
       type: 'research',
-      researchProjectId: projectId,
+      researchProjectId: project.id,
     };
     setOpenTabs(prev => [...prev, newTab]);
-    setActiveTabId(projectId);
+    setActiveTabId(project.id);
     setShowLandingPage(false);
   };
 
@@ -1307,7 +1344,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen font-sans text-gray-800 dark:text-gray-200">
+    <div className="flex h-full w-full font-sans text-gray-800 dark:text-gray-200">
       {showLandingPage ? (
         <DocumentLandingPage
           onOpenDocument={handleOpenDocument}
@@ -1330,7 +1367,7 @@ const App: React.FC = () => {
               <div className="p-1.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg">
                 <SparklesIcon className="h-4 w-4 text-white" />
               </div>
-              <h1 className="text-base font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
+              <h1 className="hidden sm:block text-base font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
                 AI Note Taker
               </h1>
             </div>
@@ -1348,26 +1385,54 @@ const App: React.FC = () => {
               
               <div className="w-px h-5 bg-gray-300 dark:bg-gray-600"></div>
               
-              {/* Document Management */}
-              <div className="flex items-center gap-0.5 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-1 py-0.5 rounded-md border border-gray-200/50 dark:border-gray-700/50">
-                <button
-                  onClick={() => setIsSaveDocumentDialogOpen(true)}
-                  className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all"
-                  title="Save document locally"
-                >
-                  <SaveIcon className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => setIsDocumentLibraryOpen(true)}
-                  className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all"
-                  title="My Documents"
-                >
-                  <FolderIcon className="h-4 w-4" />
-                </button>
-              </div>
+              {/* Document Management – hidden for research tabs */}
+              {!isResearchTab && (
+                <div className="flex items-center gap-0.5 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-1 py-0.5 rounded-md border border-gray-200/50 dark:border-gray-700/50">
+                  <button
+                    onClick={() => setIsSaveDocumentDialogOpen(true)}
+                    className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all"
+                    title="Save document locally"
+                  >
+                    <SaveIcon className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => setIsDocumentLibraryOpen(true)}
+                    className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all"
+                    title="My Documents"
+                  >
+                    <FolderIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* My Projects – shown only on research tabs */}
+              {isResearchTab && (
+                <div className="flex items-center gap-0.5 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-1 py-0.5 rounded-md border border-gray-200/50 dark:border-gray-700/50">
+                  <button
+                    onClick={async () => {
+                      setMyProjectsLoading(true);
+                      setIsMyProjectsOpen(true);
+                      try {
+                        const { getAllResearchProjectsFromFirestore } = await import('./services/researchFirestoreService');
+                        const projects = await getAllResearchProjectsFromFirestore(user?.uid || '');
+                        setMyProjects(projects);
+                      } catch (e) { console.error(e); }
+                      setMyProjectsLoading(false);
+                    }}
+                    className="p-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-all flex items-center gap-1.5 px-2"
+                    title="My Research Projects"
+                  >
+                    <FolderIcon className="h-4 w-4" />
+                    <span className="text-xs font-medium">My Projects</span>
+                  </button>
+                </div>
+              )}
 
               <div className="w-px h-5 bg-gray-300 dark:bg-gray-600"></div>
 
+                {/* Import Word + Find – hidden on research tabs */}
+                {!isResearchTab && (
+                  <>
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -1392,6 +1457,10 @@ const App: React.FC = () => {
               >
                   <SearchIcon className="h-4 w-4" />
               </button>
+                  </>
+                )}
+               {/* Transcribe button – hidden on research tabs */}
+              {!isResearchTab && (
               <button
                 onClick={() => setIsTranscriptionOpen(true)}
                 className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all"
@@ -1399,10 +1468,22 @@ const App: React.FC = () => {
               >
                 <DocumentIcon className="h-4 w-4" />
               </button>
+              )}
+              {/* Table of Contents – always visible; on research tabs it triggers the research TOC */}
               <button
-                onClick={() => setIsTableOfContentsOpen(true)}
-                className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all"
-                title="Table of Contents"
+                onClick={() => {
+                  if (isResearchTab) {
+                    setIsResearchTocOpen(prev => !prev);
+                  } else {
+                    setIsTableOfContentsOpen(true);
+                  }
+                }}
+                className={`p-1.5 rounded-md transition-all ${
+                  isResearchTab
+                    ? 'text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400'
+                }`}
+                title={isResearchTab ? 'Document Outline' : 'Table of Contents'}
               >
                 <TableOfContentsIcon className="h-4 w-4" />
               </button>
@@ -1500,8 +1581,9 @@ const App: React.FC = () => {
             onNewResearch={handleNewResearch}
           />
 
-          {/* Third Row: Formatting Toolbar */}
-          <div className="px-4 py-2">
+          {/* Third Row: Formatting Toolbar – hidden on research tabs */}
+          {!isResearchTab && (
+            <div className="px-4 py-2">
               <FormattingToolbar
                 onFormat={(type, value) => editorRef.current?.format(type, value)}
                 onClear={() => editorRef.current?.clear()}
@@ -1513,6 +1595,7 @@ const App: React.FC = () => {
                 onRedo={handleRedo}
               />
             </div>
+          )}
         </header>
 
         {/* Main content — swap NoteEditor for ResearchWorkspace on research tabs */}
@@ -1531,6 +1614,9 @@ const App: React.FC = () => {
               onNavigate={handleFindNavigate}
               onCloseFind={handleCloseFind}
               setCounts={setCounts}
+              onProjectUpdate={setActiveResearchProject}
+              isTocOpen={isResearchTocOpen}
+              onCloseToc={() => setIsResearchTocOpen(false)}
             />
           </div>
         ) : (
@@ -1608,6 +1694,86 @@ const App: React.FC = () => {
 
       {!showLandingPage && (
         <ChatWindow addTextToNote={handleAddTextToNote} />
+      )}
+
+      {/* My Projects Modal — shown when research tab is active */}
+      {isMyProjectsOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setIsMyProjectsOpen(false)}>
+          <div
+            className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg">
+                  <FolderIcon className="h-4 w-4 text-white" />
+                </div>
+                <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">My Research Projects</h2>
+              </div>
+              <button
+                onClick={() => setIsMyProjectsOpen(false)}
+                className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Project list */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-2">
+              {myProjectsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : myProjects.length === 0 ? (
+                <div className="text-center py-12 text-gray-400 dark:text-gray-500">
+                  <p className="text-sm">No research projects found.</p>
+                  <p className="text-xs mt-1">Create a new research project to get started.</p>
+                </div>
+              ) : (
+                myProjects
+                  .sort((a, b) => b.updatedAt - a.updatedAt)
+                  .map(proj => (
+                    <button
+                      key={proj.id}
+                      onClick={() => {
+                        handleOpenResearch(proj);
+                        setIsMyProjectsOpen(false);
+                      }}
+                      className="w-full text-left px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-800 hover:border-indigo-200 dark:hover:border-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 group-hover:text-indigo-700 dark:group-hover:text-indigo-300 transition-colors">
+                            {proj.meta.projectName}
+                          </p>
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+                            {proj.meta.author} · {proj.resources.length} resource{proj.resources.length !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                        <span className="text-xs text-gray-400 dark:text-gray-600 ml-4 shrink-0">
+                          {new Date(proj.updatedAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </button>
+                  ))
+              )}
+            </div>
+
+            {/* Footer: New project button */}
+            <div className="px-6 py-4 border-t border-gray-100 dark:border-gray-800">
+              <button
+                onClick={() => {
+                  setIsMyProjectsOpen(false);
+                  handleNewResearch();
+                }}
+                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-semibold hover:from-indigo-600 hover:to-purple-700 transition-all shadow"
+              >
+                + New Research Project
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <HelpMeThinkModal
@@ -1710,7 +1876,7 @@ const App: React.FC = () => {
             }
           }}
           onAddDocuments={() => {
-            setIsAddDocumentsModalOpen(true);
+            setIsDocumentLibraryOpen(true);
           }}
           userId={user?.uid}
           incognitoMode={incognitoMode}

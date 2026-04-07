@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ResearchResource } from '../../types';
 import { explainDeep, simplifyText, summariseText, rewriteText } from '../../services/researchAiService';
 
@@ -70,7 +71,7 @@ export const SelectionBubble: React.FC<SelectionBubbleProps> = ({
     { action: 'rewrite', label: 'Rewrite', icon: '🔄', color: 'hover:bg-orange-50 dark:hover:bg-orange-900/30 hover:text-orange-600 dark:hover:text-orange-300' },
   ];
 
-  return (
+  const bubbleContent = (
     <div ref={ref} style={style} className="animate-in fade-in slide-in-from-bottom-2 duration-150">
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="flex items-center">
@@ -106,4 +107,6 @@ export const SelectionBubble: React.FC<SelectionBubbleProps> = ({
       </div>
     </div>
   );
+
+  return createPortal(bubbleContent, document.body);
 };

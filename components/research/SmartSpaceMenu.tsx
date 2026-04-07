@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { SparklesIcon, XIcon } from '../icons';
 
 interface SmartSpaceMenuProps {
@@ -34,40 +35,41 @@ export const SmartSpaceMenu: React.FC<SmartSpaceMenuProps> = ({
     };
   }, [onClose]);
 
-  // Keep menu on screen
+  // Keep menu on screen (Menu is roughly 160px wide and 150px tall)
+  const MENU_WIDTH = 160;
+  const MENU_HEIGHT = 150;
+  
+  // Ensure it doesn't go off the right/bottom, nor the top/left
+  const safeX = Math.max(10, Math.min(x, window.innerWidth - MENU_WIDTH - 10));
+  const safeY = Math.max(10, Math.min(y, window.innerHeight - MENU_HEIGHT - 10));
+
   const style: React.CSSProperties = {
     position: 'fixed',
-    top: Math.min(y, window.innerHeight - 200),
-    left: Math.min(x, window.innerWidth - 220),
+    top: safeY,
+    left: safeX,
     zIndex: 1000,
   };
 
   const menuItems = [
     {
       icon: '📝',
-      label: 'Generate Notes',
-      desc: 'AI creates structured notes from resources',
+      label: 'Notes',
       action: () => { onClose(); onGenerateNotes(); },
-      color: 'from-violet-500 to-purple-600',
-    },
-    {
-      icon: '✨',
-      label: 'Simplify',
-      desc: 'Rewrite in simpler language',
-      action: () => { onClose(); onSimplify(); },
-      color: 'from-blue-500 to-cyan-500',
     },
     {
       icon: '🎯',
-      label: 'Q&A',
-      desc: 'Generate questions or run a quiz',
+      label: 'QnA',
       action: () => { onClose(); onQA(); },
-      color: 'from-emerald-500 to-teal-500',
+    },
+    {
+      icon: '✨',
+      label: 'Summary',
+      action: () => { onClose(); onSimplify(); },
     },
   ];
 
-  return (
-    <div ref={menuRef} style={style} className="w-52 animate-in fade-in slide-in-from-top-2 duration-150">
+  const menuContent = (
+    <div ref={menuRef} style={style} className="w-40 animate-in fade-in slide-in-from-top-2 duration-150">
       <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-950/50 dark:to-indigo-950/50 border-b border-gray-200 dark:border-gray-700">
@@ -89,19 +91,18 @@ export const SmartSpaceMenu: React.FC<SmartSpaceMenuProps> = ({
             <button
               key={item.label}
               onClick={item.action}
-              className="w-full flex items-start gap-2.5 px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-left group"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-left group"
             >
-              <span className="text-base leading-none mt-0.5">{item.icon}</span>
-              <div>
-                <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
-                  {item.label}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">{item.desc}</p>
-              </div>
+              <span className="text-base leading-none">{item.icon}</span>
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-100 group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                {item.label}
+              </p>
             </button>
           ))}
         </div>
       </div>
     </div>
   );
+
+  return createPortal(menuContent, document.body);
 };

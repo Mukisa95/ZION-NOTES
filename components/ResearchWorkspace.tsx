@@ -20,6 +20,9 @@ interface ResearchWorkspaceProps {
   onNavigate?: (direction: 'next' | 'prev') => void;
   onCloseFind?: () => void;
   setCounts?: (counts: { words: number; characters: number }) => void;
+  onProjectUpdate?: (project: ResearchProject) => void;
+  isTocOpen?: boolean;
+  onCloseToc?: () => void;
 }
 
 export const ResearchWorkspace: React.FC<ResearchWorkspaceProps> = ({
@@ -33,14 +36,17 @@ export const ResearchWorkspace: React.FC<ResearchWorkspaceProps> = ({
   onFind,
   onNavigate,
   onCloseFind,
-  setCounts
+  setCounts,
+  onProjectUpdate,
+  isTocOpen,
+  onCloseToc,
 }) => {
   const [project, setProject] = useState<ResearchProject | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const [showResourcesDesktop, setShowResourcesDesktop] = useState(true);
-  const [mobileTab, setMobileTab] = useState<'resources' | 'document'>('document');
+  const [mobileTab, setMobileTab] = useState<'resources' | 'document' | 'outline'>('document');
   const [activeDocumentId, setActiveDocumentId] = useState<string>('main');
   const autoSaveRef = useRef<NodeJS.Timeout | null>(null);
   const isDirtyRef = useRef(false);
@@ -54,6 +60,7 @@ export const ResearchWorkspace: React.FC<ResearchWorkspaceProps> = ({
           const p = await getResearchProjectFromFirestore(userId, projectId);
           if (p) {
             setProject(p);
+            onProjectUpdate?.(p);
           } else {
             setError('Research project not found.');
           }
@@ -106,6 +113,7 @@ export const ResearchWorkspace: React.FC<ResearchWorkspaceProps> = ({
     if (!project) return;
     const updated = { ...project, resources };
     setProject(updated);
+    onProjectUpdate?.(updated);
     scheduleAutoSave(updated);
   };
 
@@ -123,6 +131,7 @@ export const ResearchWorkspace: React.FC<ResearchWorkspaceProps> = ({
       };
     }
     setProject(updated);
+    onProjectUpdate?.(updated);
     scheduleAutoSave(updated);
   };
 
@@ -164,65 +173,87 @@ export const ResearchWorkspace: React.FC<ResearchWorkspaceProps> = ({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Project header */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-950/30 dark:to-indigo-950/30 border-b border-violet-200 dark:border-violet-800/50 flex-shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
-          {!showResourcesDesktop && (
+
+
+      {/* Mobile Tab Bar — compact pill switcher */}
+      <div className="md:hidden flex-shrink-0 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-3 py-1.5">
+        <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-xl p-0.5 gap-0.5">
+
+          {/* Resources tab */}
+          <button
+            onClick={() => setMobileTab('resources')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all duration-200 ${
+              mobileTab === 'resources'
+                ? 'bg-white dark:bg-gray-700 text-violet-700 dark:text-violet-300 shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
+          >
+            <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            <span>Sources</span>
+            {project.resources.length > 0 && (
+              <span className={`text-[10px] font-bold px-1 rounded-full leading-tight ${
+                mobileTab === 'resources'
+                  ? 'bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+              }`}>
+                {project.resources.length}
+              </span>
+            )}
+          </button>
+
+          {/* Document tab */}
+          <button
+            onClick={() => setMobileTab('document')}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all duration-200 ${
+              mobileTab === 'document'
+                ? 'bg-white dark:bg-gray-700 text-violet-700 dark:text-violet-300 shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+            }`}
+          >
+            <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <span>Document</span>
+          </button>
+
+          {/* Outline tab — only when TOC is on */}
+          {isTocOpen && (
+            <button
+              onClick={() => setMobileTab('outline')}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-xs font-semibold transition-all duration-200 ${
+                mobileTab === 'outline'
+                  ? 'bg-white dark:bg-gray-700 text-indigo-700 dark:text-indigo-300 shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              }`}
+            >
+              <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h10M4 18h7" />
+              </svg>
+              <span>Outline</span>
+            </button>
+          )}
+
+        </div>
+      </div>
+
+      {/* Dual pane */}
+      <div className="flex flex-1 overflow-hidden relative">
+        {!showResourcesDesktop && (
+          <div className="absolute top-2 left-2 z-10 hidden md:block">
             <button
               onClick={() => setShowResourcesDesktop(true)}
-              className="hidden md:flex p-1.5 rounded-lg border border-violet-200 dark:border-violet-800 text-violet-600 dark:text-violet-400 hover:bg-violet-100 dark:hover:bg-violet-900/50 transition-all"
+              className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
               title="Show Resources"
             >
               <PanelLeftOpenIcon className="w-4 h-4" />
             </button>
-          )}
-          <div className="p-1.5 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600">
-            <svg className="h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 0 1-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 0 1 4.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15M14.25 3.104c.251.023.501.05.75.082M19.8 15a2.25 2.25 0 0 1 .45 1.318 2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 16.318a2.25 2.25 0 0 1 .45-1.318L9 8.5M14.25 3h-4.5" />
-            </svg>
+            <span className={`ml-2 text-[10px] font-semibold bg-white/80 dark:bg-gray-800/80 px-2 py-1 rounded shadow-sm ${saveColor}`}>
+              {saveLabel}
+            </span>
           </div>
-          <div className="min-w-0">
-            <p className="font-bold text-gray-900 dark:text-white text-sm truncate">
-              {project.meta.projectName}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">by {project.meta.author}</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 flex-shrink-0">
-          <span className={`text-xs font-semibold ${saveColor}`}>{saveLabel}</span>
-          <span className="text-xs text-gray-400 dark:text-gray-600">
-            {project.resources.length} resource{project.resources.length !== 1 ? 's' : ''}
-          </span>
-        </div>
-      </div>
-
-      {/* Mobile Tab Bar */}
-      <div className="md:hidden flex border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0">
-        <button
-          onClick={() => setMobileTab('resources')}
-          className={`flex-1 py-3 text-sm font-semibold transition-all ${
-            mobileTab === 'resources'
-              ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-600 dark:border-violet-400 bg-violet-50 dark:bg-violet-900/40'
-              : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          Resources
-        </button>
-        <button
-          onClick={() => setMobileTab('document')}
-          className={`flex-1 py-3 text-sm font-semibold transition-all ${
-            mobileTab === 'document'
-              ? 'text-violet-600 dark:text-violet-400 border-b-2 border-violet-600 dark:border-violet-400 bg-violet-50 dark:bg-violet-900/40'
-              : 'text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
-          }`}
-        >
-          Document
-        </button>
-      </div>
-
-      {/* Dual pane */}
-      <div className="flex flex-1 overflow-hidden">
+        )}
         {/* Left: Resource Pane */}
         <div 
           className={`
@@ -232,7 +263,11 @@ export const ResearchWorkspace: React.FC<ResearchWorkspaceProps> = ({
           `}
         >
           <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 flex-shrink-0 flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Sources</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Sources {project.resources.length > 0 ? '(' + project.resources.length + ')' : ''}
+            </span>
+            <div className="flex items-center gap-2">
+                <span className={`text-[10px] font-semibold ${saveColor}`}>{saveLabel}</span>
             <button 
               onClick={() => setShowResourcesDesktop(false)} 
               className="hidden md:block p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
@@ -240,6 +275,7 @@ export const ResearchWorkspace: React.FC<ResearchWorkspaceProps> = ({
             >
                <PanelLeftCloseIcon className="w-4 h-4" />
             </button>
+            </div>
           </div>
           <div className="flex-1 overflow-y-auto">
             <ResourcePane
@@ -256,9 +292,9 @@ export const ResearchWorkspace: React.FC<ResearchWorkspaceProps> = ({
           </div>
         </div>
 
-        {/* Right: Document Pane */}
+        {/* Right: Document Pane – shown for 'document' and 'outline' mobile tabs */}
         <div className={`
-          ${mobileTab === 'document' ? 'flex' : 'hidden'} md:flex
+          ${(mobileTab === 'document' || mobileTab === 'outline') ? 'flex' : 'hidden'} md:flex
           flex-1 overflow-hidden flex-col
         `}>
           {/* Right: Document Pane */}
@@ -277,6 +313,10 @@ export const ResearchWorkspace: React.FC<ResearchWorkspaceProps> = ({
             onNavigate={onNavigate}
             onCloseFind={onCloseFind}
             setCounts={setCounts}
+            isTocOpen={isTocOpen}
+            onCloseToc={onCloseToc}
+            isMobileOutline={mobileTab === 'outline'}
+            onMobileOutlineClose={() => setMobileTab('document')}
           />
         </div>
       </div>
