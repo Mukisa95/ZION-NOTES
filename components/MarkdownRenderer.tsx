@@ -101,6 +101,7 @@ export const MarkdownRenderer: React.FC<{ content: string; className?: string }>
   let paragraphBuffer: string[] = [];
   let listBuffer: string[] = [];
   let blockquoteBuffer: string[] = [];
+  let tableBuffer: string[] = [];
 
   const flushParagraph = (key: string) => {
     if (paragraphBuffer.length > 0) {
@@ -135,10 +136,53 @@ export const MarkdownRenderer: React.FC<{ content: string; className?: string }>
     }
   };
   
+  const flushTable = (key: string) => {
+    if (tableBuffer.length > 0) {
+      const rows = tableBuffer.map((row, i) => {
+        let cells = row.split('|').map(c => c.trim());
+        if (cells[0] === '') cells.shift();
+        if (cells[cells.length - 1] === '') cells.pop();
+        return { isSeparator: cells.every(c => c.match(/^[:-\\s]+$/)), cells, originalIndex: i };
+      });
+      
+      const theadCells = rows[0].cells;
+      const tBodyRows = rows.slice(1).filter(r => !r.isSeparator);
+      
+      elements.push(
+        <div key={key} className="overflow-x-auto my-4 w-full">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg">
+            <thead className="bg-gray-50 dark:bg-gray-800">
+              <tr>
+                {theadCells.map((c, idx) => (
+                  <th key={idx} className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 tracking-wider">
+                    {parseInline(c, `table-${key}-th-${idx}`)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              {tBodyRows.map((row, rIdx) => (
+                <tr key={row.originalIndex} className="bg-white dark:bg-gray-900">
+                  {row.cells.map((c, cIdx) => (
+                    <td key={cIdx} className="px-4 py-3 whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300 border-t border-gray-200 dark:border-gray-700">
+                      {parseInline(c, `table-${key}-td-${rIdx}-${cIdx}`)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      tableBuffer = [];
+    }
+  };
+  
   const flushAll = (key: string) => {
     flushParagraph(key);
     flushList(key);
     flushBlockquote(key);
+    flushTable(key);
   };
 
   lines.forEach((line, index) => {
@@ -162,6 +206,15 @@ export const MarkdownRenderer: React.FC<{ content: string; className?: string }>
     // Rule 3: If we are here, the line is not a list item, and it is not a blank line continuing a list.
     // This means any active list must end.
     flushList(`l-${index}`);
+    
+    if (trimmedLine.startsWith('|')) {
+      flushParagraph(`p-${index}`);
+      flushBlockquote(`bq-${index}`);
+      tableBuffer.push(line);
+      return;
+    }
+    
+    flushTable(`tbl-${index}`);
     
     // Now process the current line as a new block type.
     if (trimmedLine.startsWith('>')) {

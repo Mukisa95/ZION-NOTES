@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { PlusIcon, DocumentIcon, TrashIcon, SearchIcon, CloudIcon, SettingsIcon, FolderIcon, CheckIcon, EditIcon } from './icons';
+import React, { useState, useEffect, useRef } from 'react';
+import { PlusIcon, DocumentIcon, TrashIcon, SearchIcon, CloudIcon, SettingsIcon, FolderIcon, CheckIcon, EditIcon, BeakerIcon } from './icons';
+import { ResearchProject } from '../types';
+import { getAllResearchProjectsFromFirestore, deleteResearchProjectFromFirestore } from '../services/researchFirestoreService';
 import { SavedDocument, getAllDocuments, saveDocument } from '../services/documentStorage';
 import { getAllDocumentsFromFirestore, deleteDocumentFromFirestore, saveDocumentToFirestore } from '../services/firestoreService';
 import { UserProfile } from './UserProfile';
@@ -18,6 +20,8 @@ interface DocumentLandingPageProps {
     onOpenDocument: (doc: SavedDocument) => void;
     onOpenDocuments: (docs: SavedDocument[]) => void;
     onCreateNew: () => void;
+    onCreateNewResearch: () => void;
+    onOpenResearch?: (project: ResearchProject) => void;
     userId?: string | null;
     incognitoMode?: boolean;
     user?: any; // Firebase user object
@@ -27,6 +31,8 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
     onOpenDocument,
     onOpenDocuments,
     onCreateNew,
+    onCreateNewResearch,
+    onOpenResearch,
     userId,
     incognitoMode = false,
     user
@@ -50,11 +56,49 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
     const [moveToWareDialogOpen, setMoveToWareDialogOpen] = useState(false);
     const [filteredWares, setFilteredWares] = useState<Ware[]>([]);
     const [wareMatchedDocs, setWareMatchedDocs] = useState<Record<string, SavedDocument[]>>({});
+    const [showNewMenu, setShowNewMenu] = useState(false);
+    const [researchProjects, setResearchProjects] = useState<ResearchProject[]>([]);
+    const [activeTab, setActiveTab] = useState<'documents' | 'projects'>('documents');
+    const newMenuRef = useRef<HTMLDivElement>(null);
+    const newBtnRef = useRef<HTMLButtonElement>(null);
 
     useEffect(() => {
         loadDocuments();
         loadWares();
+        loadResearchProjects();
     }, [userId, incognitoMode]);
+
+    useEffect(() => {
+        if (!showNewMenu) return;
+        const handle = (e: MouseEvent) => {
+            if (
+                newMenuRef.current && !newMenuRef.current.contains(e.target as Node) &&
+                newBtnRef.current && !newBtnRef.current.contains(e.target as Node)
+            ) {
+                setShowNewMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', handle);
+        return () => document.removeEventListener('mousedown', handle);
+    }, [showNewMenu]);
+
+    const loadResearchProjects = async () => {
+        if (!userId) return;
+        try {
+            const projects = await getAllResearchProjectsFromFirestore(userId);
+            setResearchProjects(projects);
+        } catch { /* non-critical */ }
+    };
+
+    const handleDeleteResearchProject = async (projectId: string) => {
+        if (!userId) return;
+        try {
+            await deleteResearchProjectFromFirestore(userId, projectId);
+            setResearchProjects(prev => prev.filter(p => p.id !== projectId));
+        } catch (e: any) {
+            alert('Error deleting research project: ' + e.message);
+        }
+    };
 
     // Filter documents and WARES based on search query
     useEffect(() => {
@@ -466,93 +510,43 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
         <div className="flex flex-col h-full w-full bg-gray-50 dark:bg-gray-900">
             {/* Header */}
             <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
-                <div className="max-w-6xl mx-auto px-6 py-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <div>
-                            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                                My Documents
+                <div className="max-w-6xl mx-auto px-6 pt-6 pb-3">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div className="shrink-0 order-1">
+                            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2 transition-all">
+                                {activeTab === 'projects' ? 'My Projects' : 'My Documents'}
                             </h1>
                             <div className="flex items-center gap-3">
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                    {filteredDocuments.length} document{filteredDocuments.length !== 1 ? 's' : ''} {documents.length > filteredDocuments.length ? `(${documents.length - filteredDocuments.length} in WARES)` : ''} {searchQuery ? `(filtered)` : ''}
+                                <p className="text-sm text-gray-600 dark:text-gray-400 transition-all">
+                                    {activeTab === 'projects' 
+                                        ? `${researchProjects.length} project${researchProjects.length !== 1 ? 's' : ''}`
+                                        : <>{filteredDocuments.length} document{filteredDocuments.length !== 1 ? 's' : ''} {documents.length > filteredDocuments.length ? `(${documents.length - filteredDocuments.length} in WARES)` : ''} {searchQuery ? `(filtered)` : ''}</>
+                                    }
                                 </p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                            {/* Authentication */}
-                            {user ? (
-                                <>
-                                    <UserProfile onOpenSettings={() => setIsSettingsOpen(true)} />
-                                </>
-                            ) : (
-                                <>
-                                    <button
-                                        onClick={() => setIsSettingsOpen(true)}
-                                        className="p-2 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all"
-                                        title="Settings"
-                                    >
-                                        <SettingsIcon className="h-5 w-5" />
-                                    </button>
-                                    <button
-                                        onClick={() => setIsAuthModalOpen(true)}
-                                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white text-sm font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
-                                        title="Sign in to sync documents"
-                                    >
-                                        <CloudIcon className="h-5 w-5" />
-                                        <span className="hidden sm:inline">Sign In</span>
-                                    </button>
-                                </>
-                            )}
-                            
-                            <button
-                                onClick={() => setIsCreateWareModalOpen(true)}
-                                className="p-3 bg-gradient-to-br from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 active:scale-95 icon-glossy"
-                                title="New WARE"
-                            >
-                                <FolderIcon className="h-5 w-5" />
-                            </button>
-                            
-                            <button
-                                onClick={onCreateNew}
-                                className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 active:scale-95 icon-glossy"
-                                title="New Document"
-                            >
-                                <PlusIcon className="h-5 w-5" />
-                            </button>
-                        </div>
-                    </div>
 
-                    {/* Search Bar with Selection Controls */}
-                    <div className="flex items-center gap-3">
-                        <div className="relative flex-1">
-                            <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Search documents and WARES..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-all duration-200"
-                            />
-                        </div>
-                        
-                        {/* Selection Mode Controls */}
+                        {/* Middle Area: Search Bar or Selection Actions */}
                         {!selectionMode ? (
-                            <button
-                                onClick={() => setSelectionMode(true)}
-                                className="p-3 bg-gradient-to-br from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105 active:scale-95 flex-shrink-0 icon-glossy"
-                                title="Select Items"
-                            >
-                                <CheckIcon className="h-5 w-5" />
-                            </button>
+                            <div className="relative w-full lg:flex-1 lg:max-w-xl mx-0 lg:mx-4 order-3 lg:order-2">
+                                <SearchIcon className="absolute left-3.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                <input
+                                    type="text"
+                                    placeholder={activeTab === 'projects' ? 'Search projects...' : 'Search documents and folders...'}
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-full bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent transition-all duration-200 text-sm shadow-inner"
+                                />
+                            </div>
                         ) : (
-                            <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+                            <div className="w-full lg:flex-1 flex items-center gap-2 flex-wrap min-w-0 lg:justify-center order-3 lg:order-2">
                                 <button
                                     onClick={() => {
                                         setSelectionMode(false);
                                         setSelectedWareIds([]);
                                         setSelectedDocIds([]);
                                     }}
-                                    className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 text-sm font-semibold"
+                                    className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 text-sm font-semibold shrink-0"
                                 >
                                     Cancel
                                 </button>
@@ -586,7 +580,7 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                                 {selectedWareIds.length > 1 && (
                                     <button
                                         onClick={handleBulkDeleteWares}
-                                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all text-sm font-semibold"
+                                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all text-sm font-semibold shrink-0"
                                     >
                                         Delete {selectedWareIds.length} WARES
                                     </button>
@@ -629,13 +623,13 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                                     <>
                                         <button
                                             onClick={() => setMoveToWareDialogOpen(true)}
-                                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all text-sm font-semibold"
+                                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all text-sm font-semibold shrink-0"
                                         >
                                             Move {selectedDocIds.length} to WARE
                                         </button>
                                         <button
                                             onClick={handleBulkDeleteDocuments}
-                                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all text-sm font-semibold"
+                                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all text-sm font-semibold shrink-0"
                                         >
                                             Delete {selectedDocIds.length} Docs
                                         </button>
@@ -643,19 +637,157 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                                 )}
                             </div>
                         )}
+
+                        <div className="flex items-center gap-2 sm:gap-3 shrink-0 order-2 lg:order-3">
+                            {!selectionMode && (
+                                <button
+                                    onClick={() => setSelectionMode(true)}
+                                    className="w-10 h-10 flex items-center justify-center bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full transition-all duration-200 shrink-0"
+                                    title="Select Items"
+                                >
+                                    <CheckIcon className="h-4 w-4 text-gray-600 dark:text-gray-300" />
+                                </button>
+                            )}
+
+                            {/* Authentication */}
+                            {user ? (
+                                <>
+                                    <UserProfile onOpenSettings={() => setIsSettingsOpen(true)} />
+                                </>
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={() => setIsSettingsOpen(true)}
+                                        className="w-10 h-10 flex items-center justify-center text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-full transition-all shrink-0"
+                                        title="Settings"
+                                    >
+                                        <SettingsIcon className="h-5 w-5" />
+                                    </button>
+                                    <button
+                                        onClick={() => setIsAuthModalOpen(true)}
+                                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white text-sm font-semibold rounded-full shadow-md hover:shadow-lg transition-all duration-200 shrink-0"
+                                        title="Sign in to sync documents"
+                                    >
+                                        <CloudIcon className="h-5 w-5" />
+                                        <span className="hidden sm:inline">Sign In</span>
+                                    </button>
+                                </>
+                            )}
+                            
+                            <div className="relative">
+                                <button
+                                    ref={newBtnRef}
+                                    onClick={() => setShowNewMenu(v => !v)}
+                                    className="w-10 h-10 flex items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-full shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105 active:scale-95 shrink-0 icon-glossy"
+                                    title="Create New"
+                                >
+                                    <PlusIcon className="h-5 w-5" />
+                                </button>
+                                {showNewMenu && (
+                                    <div
+                                        ref={newMenuRef}
+                                        className="absolute right-0 top-full mt-2 w-52 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50 animate-fade-in-up origin-top-right"
+                                    >
+                                        <div className="p-1.5 space-y-0.5">
+                                            <button
+                                                onClick={() => { setShowNewMenu(false); onCreateNew(); }}
+                                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-all text-left"
+                                            >
+                                                <DocumentIcon className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                                                <div>
+                                                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Document</p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">Blank note editor</p>
+                                                </div>
+                                            </button>
+                                            <button
+                                                onClick={() => { setShowNewMenu(false); onCreateNewResearch(); }}
+                                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-all text-left"
+                                            >
+                                                <BeakerIcon className="h-4 w-4 text-violet-500 flex-shrink-0" />
+                                                <div>
+                                                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Project</p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">Research workspace</p>
+                                                </div>
+                                            </button>
+                                            <button
+                                                onClick={() => { setShowNewMenu(false); setIsCreateWareModalOpen(true); }}
+                                                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/10 transition-all text-left"
+                                            >
+                                                <FolderIcon className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                                                <div>
+                                                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-100">Folder</p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">Organize documents</p>
+                                                </div>
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
+                </div>
+            </div>
+
+            {/* Pill Tab Switcher */}
+            <div className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-6 py-2 flex-shrink-0 flex justify-center">
+                <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-full p-0.5 gap-0.5 w-full max-w-[320px]">
+                    <button
+                        onClick={() => setActiveTab('documents')}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-full text-sm font-semibold transition-all duration-200 ${
+                            activeTab === 'documents'
+                                ? 'bg-white dark:bg-gray-700 text-blue-700 dark:text-blue-300 shadow-sm'
+                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                        }`}
+                    >
+                        <DocumentIcon className="w-4 h-4 shrink-0" />
+                        <span>Documents</span>
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('projects')}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-full text-sm font-semibold transition-all duration-200 ${
+                            activeTab === 'projects'
+                                ? 'bg-white dark:bg-gray-700 text-violet-700 dark:text-violet-300 shadow-sm'
+                                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+                        }`}
+                    >
+                        <BeakerIcon className="w-4 h-4 shrink-0" />
+                        <span>Projects</span>
+                        {researchProjects.length > 0 && (
+                            <span className={`text-[10px] font-bold px-1.5 rounded-full leading-tight ${
+                                activeTab === 'projects'
+                                    ? 'bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300'
+                                    : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                            }`}>
+                                {researchProjects.length}
+                            </span>
+                        )}
+                    </button>
                 </div>
             </div>
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto max-w-6xl w-full mx-auto px-6 py-8">
-                {/* WARES Section */}
-                {filteredWares.length > 0 && (
+                
+                {/* -------------------- DOCUMENTS TAB -------------------- */}
+                {activeTab === 'documents' && (
+                    <div className="animate-fade-in-up">
+                        {/* WARES Section */}
+                        {filteredWares.length > 0 && (
                     <div className="mb-8">
-                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                            WARES {searchQuery && `(${filteredWares.length} matching)`}
-                        </h2>
-                        <div className={searchQuery ? 'space-y-4' : 'flex flex-wrap gap-4 sm:gap-6'}>
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                <FolderIcon className="h-5 w-5 text-emerald-500" />
+                                WARES {searchQuery && `(${filteredWares.length} matching)`}
+                            </h2>
+                            <button
+                                onClick={() => setIsCreateWareModalOpen(true)}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 dark:bg-emerald-900/30 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 rounded-lg text-sm font-semibold transition-all"
+                            >
+                                <PlusIcon className="h-4 w-4" />
+                                <span className="hidden sm:inline">New Folder</span>
+                            </button>
+                        </div>
+                        <div className={searchQuery ? 'space-y-4' : 'grid grid-cols-1 md:grid-cols-2 gap-3'}>
                             {filteredWares.map((ware, index) => {
                                 const colorStyle = getWareColorStyle(ware.color);
                                 const isDark = document.documentElement.classList.contains('dark');
@@ -739,59 +871,37 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                                     return (
                                         <div
                                             key={ware.id}
-                                        onClick={(e) => {
-                                            if (selectionMode) {
-                                                handleToggleWareSelection(ware.id, e);
-                                            } else {
-                                                e.currentTarget.classList.add('icon-press');
-                                                setTimeout(() => handleOpenWare(ware), 100);
-                                            }
-                                        }}
-                                        className={`group flex flex-col items-center gap-2 cursor-pointer transition-transform duration-200 hover:scale-110 ${
-                                            isSelected ? 'ring-2 ring-blue-500 rounded-lg p-1' : ''
-                                        }`}
-                                            style={{
-                                                width: '90px'
+                                            onClick={(e) => {
+                                                if (selectionMode) {
+                                                    handleToggleWareSelection(ware.id, e);
+                                                } else {
+                                                    handleOpenWare(ware);
+                                                }
                                             }}
+                                            className={`group relative flex items-center justify-between gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                                                isSelected
+                                                    ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 ring-1 ring-emerald-500/50'
+                                                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-md'
+                                            }`}
                                         >
-                                            <div className="relative">
+                                            <div className="flex items-center gap-3 min-w-0 flex-1">
                                                 {selectionMode && (
-                                                    <div 
-                                                        className={`absolute -top-2 -left-2 w-5 h-5 rounded border-2 flex items-center justify-center z-10 ${
-                                                            isSelected 
-                                                                ? 'border-blue-500 bg-blue-500' 
-                                                                : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
-                                                        }`}
-                                                    >
-                                                        {isSelected && (
-                                                            <CheckIcon className="h-3 w-3 text-white" />
-                                                        )}
+                                                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${isSelected ? 'border-emerald-500 bg-emerald-500' : 'border-gray-300 dark:border-gray-600'}`}>
+                                                        {isSelected && <CheckIcon className="h-3 w-3 text-white" />}
                                                     </div>
                                                 )}
-                                                <FolderIcon 
-                                                    className="h-12 w-12 transition-all duration-200"
-                                                    style={{
-                                                        color: isDark ? colorStyle.iconColorDark : colorStyle.iconColor
-                                                    }}
-                                                />
-                                                {ware.documentIds.length > 0 && !selectionMode && (
-                                                    <div 
-                                                        className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                                                        style={{
-                                                            backgroundColor: isDark ? colorStyle.iconColorDark : colorStyle.iconColor
-                                                        }}
-                                                    >
-                                                        {ware.documentIds.length}
+                                                <div 
+                                                    className="p-2.5 rounded-lg flex-shrink-0 shadow-sm flex items-center justify-center"
+                                                    style={{ backgroundColor: isDark ? colorStyle.iconColorDark : colorStyle.iconColor }}
+                                                >
+                                                    <FolderIcon className="h-4 w-4 text-white" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <h3 className="font-semibold text-gray-900 dark:text-white text-sm truncate">{ware.name}</h3>
+                                                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                                        <span>{ware.documentIds.length} doc{ware.documentIds.length !== 1 ? 's' : ''}</span>
                                                     </div>
-                                                )}
-                                            </div>
-                                            <div className="text-center w-full">
-                                                <h3 className="font-medium text-gray-900 dark:text-white text-xs truncate px-1">
-                                                    {ware.name}
-                                                </h3>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                    {ware.documentIds.length} doc{ware.documentIds.length !== 1 ? 's' : ''}
-                                                </p>
+                                                </div>
                                             </div>
                                         </div>
                                     );
@@ -803,7 +913,19 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
 
                 {/* Documents Section */}
                 <div>
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Documents</h2>
+                    <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                            <DocumentIcon className="h-5 w-5 text-blue-500" />
+                            Documents
+                        </h2>
+                        <button
+                            onClick={onCreateNew}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 hover:bg-blue-200 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-semibold transition-all"
+                        >
+                            <PlusIcon className="h-4 w-4" />
+                            <span className="hidden sm:inline">New Document</span>
+                        </button>
+                    </div>
                     {loading ? (
                         <div className="text-center py-16">
                             <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
@@ -841,7 +963,7 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                         )}
                     </div>
                 ) : (
-                    <div className="space-y-1.5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {filteredDocuments.map((doc) => {
                             const isSelected = selectedDocIds.includes(doc.id);
                             return (
@@ -854,39 +976,45 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                                             onOpenDocument(doc);
                                         }
                                     }}
-                                    className={`group relative flex items-center gap-2 py-1.5 px-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded transition-all duration-200 cursor-pointer ${
-                                        isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                                    className={`group relative flex items-center justify-between gap-3 p-3 rounded-xl border transition-all cursor-pointer ${
+                                        isSelected
+                                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 ring-1 ring-blue-500/50'
+                                            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-blue-400 dark:hover:border-blue-600 hover:shadow-md'
                                     }`}
                                 >
-                                    {selectionMode && (
-                                        <div 
-                                            className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
-                                                isSelected 
-                                                    ? 'border-blue-500 bg-blue-500' 
-                                                    : 'border-gray-300 dark:border-gray-600'
-                                            }`}
-                                        >
-                                            {isSelected && (
-                                                <CheckIcon className="h-3 w-3 text-white" />
-                                            )}
+                                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                                        {selectionMode && (
+                                            <div 
+                                                className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                                                    isSelected 
+                                                        ? 'border-blue-500 bg-blue-500' 
+                                                        : 'border-gray-300 dark:border-gray-600'
+                                                }`}
+                                            >
+                                                {isSelected && (
+                                                    <CheckIcon className="h-3 w-3 text-white" />
+                                                )}
+                                            </div>
+                                        )}
+                                        <div className="p-2.5 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex-shrink-0 shadow-sm flex items-center justify-center">
+                                            <DocumentIcon className="h-4 w-4 text-white" />
                                         </div>
-                                    )}
-                                    <DocumentIcon className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="font-normal text-gray-900 dark:text-white truncate text-sm">
-                                            {doc.name}
-                                        </h3>
-                                        <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                                            <span>{doc.wordCount} words</span>
-                                            <span>•</span>
-                                            <span>{formatDate(doc.lastModified || doc.updatedAt || 0)}</span>
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-semibold text-gray-900 dark:text-white text-sm truncate">
+                                                {doc.name}
+                                            </h3>
+                                            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                                <span>{doc.wordCount} words</span>
+                                                <span>•</span>
+                                                <span>{formatDate(doc.lastModified || doc.updatedAt || 0)}</span>
+                                            </div>
                                         </div>
                                     </div>
                                     
                                     {!selectionMode && (
                                         <button
                                             onClick={(e) => handleDelete(doc.id, e)}
-                                            className="p-1 rounded text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all flex-shrink-0 opacity-0 group-hover:opacity-100"
+                                            className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all flex-shrink-0 opacity-0 group-hover:opacity-100"
                                             title="Delete document"
                                         >
                                             <TrashIcon className="h-4 w-4" />
@@ -896,12 +1024,86 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                             );
                         })}
                     </div>
+                        )}
+                    </div>
+                    </div>
                 )}
-                </div>
+
+                {/* -------------------- PROJECTS TAB -------------------- */}
+                {activeTab === 'projects' && (
+                    <div className="animate-fade-in-up">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                <BeakerIcon className="h-5 w-5 text-violet-500" />
+                                Projects
+                            </h2>
+                            <button
+                                onClick={onCreateNewResearch}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-100 dark:bg-violet-900/30 hover:bg-violet-200 dark:hover:bg-violet-900/50 text-violet-700 dark:text-violet-300 rounded-lg text-sm font-semibold transition-all"
+                            >
+                                <PlusIcon className="h-4 w-4" />
+                                New Project
+                            </button>
+                        </div>
+                        
+                        {researchProjects.length === 0 ? (
+                            <div className="text-center py-16 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700">
+                                <div className="text-6xl mb-4 opacity-80">📖</div>
+                                <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                                    No projects yet
+                                </h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto mb-6">
+                                    Create a research project to organize references, build a knowledge base, and write with AI assistance.
+                                </p>
+                                <button
+                                    onClick={onCreateNewResearch}
+                                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-violet-500 to-indigo-600 hover:from-violet-600 hover:to-indigo-700 text-white font-medium rounded-lg shadow-sm transition-all"
+                                >
+                                    <PlusIcon className="h-4 w-4" />
+                                    Start a Project
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {researchProjects.map(proj => (
+                                    <div
+                                        key={proj.id}
+                                        onClick={() => onOpenResearch && onOpenResearch(proj)}
+                                        className="group relative flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-violet-400 dark:hover:border-violet-600 hover:shadow-md transition-all cursor-pointer"
+                                    >
+                                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                                            <div className="p-2.5 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex-shrink-0 shadow-sm">
+                                                <BeakerIcon className="h-4 w-4 text-white" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{proj.meta.projectName}</p>
+                                                <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                                    <span className="truncate max-w-[100px] sm:max-w-[150px]">by {proj.meta.author}</span>
+                                                    <span>•</span>
+                                                    <span>{proj.resources.length} res</span>
+                                                    <span className="hidden sm:inline">•</span>
+                                                    <span className="hidden sm:inline">{new Date(proj.updatedAt).toLocaleDateString()}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={e => { e.stopPropagation(); handleDeleteResearchProject(proj.id); }}
+                                            className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0 focus:opacity-100"
+                                            title="Delete Project"
+                                        >
+                                            <TrashIcon className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
-            
+        
             {/* Auth and Settings Modals */}
             <AuthModal
+
                 isOpen={isAuthModalOpen}
                 onClose={() => setIsAuthModalOpen(false)}
             />

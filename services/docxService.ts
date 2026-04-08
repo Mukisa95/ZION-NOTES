@@ -1,7 +1,8 @@
 import mammoth from 'mammoth';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ExternalHyperlink, Table, TableRow, TableCell, WidthType, convertInchesToTwip, ImageRun } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ExternalHyperlink, Table, TableRow, TableCell, WidthType, convertInchesToTwip, ImageRun, BorderStyle, ShadingType, UnderlineType, HorizontalPositionAlign } from 'docx';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
+import type { ResearchProject } from '../types';
 
 /**
  * Reads a .docx file and converts it to HTML with proper image and table handling
@@ -1108,6 +1109,11 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
         }
         
         const el = node as HTMLElement;
+
+        // Prevent CSS and scripts from bleeding into text flows
+        if (['STYLE', 'SCRIPT', 'NOSCRIPT'].includes(el.tagName)) {
+            return runs;
+        }
         
         // Process child nodes
         const childRuns: TextRun[] = [];
@@ -1211,7 +1217,7 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
         }
     };
     
-    const getAlignment = (el: HTMLElement): AlignmentType | undefined => {
+    const getAlignment = (el: HTMLElement): typeof AlignmentType[keyof typeof AlignmentType] | undefined => {
         const align = el.style.textAlign;
         switch (align) {
             case 'left': return AlignmentType.LEFT;
@@ -1222,9 +1228,107 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
         }
     };
     
+    // Process unordered list items with nesting support
+    const processUlItems = (ulElement: HTMLElement, level: number = 0) => {
+        ulElement.querySelectorAll(':scope > li').forEach((li) => {
+            const liEl = li as HTMLElement;
+            
+            // Process direct text/inline content
+            const liRuns: any[] = [];
+            Array.from(liEl.childNodes).forEach(child => {
+                if (child.nodeType === Node.TEXT_NODE) {
+                    const text = child.textContent?.trim();
+                    if (text) {
+                        liRuns.push(new TextRun({ text }));
+                    }
+                } else if (child.nodeName !== 'UL' && child.nodeName !== 'OL') {
+                    const childRuns = processNode(child as HTMLElement);
+                    liRuns.push(...childRuns);
+                }
+            });
+            
+            if (liRuns.length > 0) {
+                elements.push(new Paragraph({
+                    children: liRuns,
+                    alignment: getAlignment(liEl),
+                    bullet: {
+                        level: Math.min(level, 8) // Max 9 levels (0-8)
+                    },
+                    spacing: {
+                        after: 100,
+                        line: 276
+                    }
+                }));
+            }
+            
+            // Process nested lists
+            const nestedUl = liEl.querySelector(':scope > ul');
+            if (nestedUl) {
+                processUlItems(nestedUl as HTMLElement, level + 1);
+            }
+            
+            const nestedOl = liEl.querySelector(':scope > ol');
+            if (nestedOl) {
+                processOlItems(nestedOl as HTMLElement, level + 1);
+            }
+        });
+    };
+
+    // Process ordered list items with nesting support
+    const processOlItems = (olElement: HTMLElement, level: number = 0) => {
+        olElement.querySelectorAll(':scope > li').forEach((li) => {
+            const liEl = li as HTMLElement;
+            
+            // Process direct text/inline content
+            const liRuns: any[] = [];
+            Array.from(liEl.childNodes).forEach(child => {
+                if (child.nodeType === Node.TEXT_NODE) {
+                    const text = child.textContent?.trim();
+                    if (text) {
+                        liRuns.push(new TextRun({ text }));
+                    }
+                } else if (child.nodeName !== 'UL' && child.nodeName !== 'OL') {
+                    const childRuns = processNode(child as HTMLElement);
+                    liRuns.push(...childRuns);
+                }
+            });
+            
+            if (liRuns.length > 0) {
+                elements.push(new Paragraph({
+                    children: liRuns,
+                    alignment: getAlignment(liEl),
+                    numbering: {
+                        reference: 'ordered-list',
+                        level: Math.min(level, 8) // Max 9 levels (0-8)
+                    },
+                    spacing: {
+                        after: 100,
+                        line: 276
+                    }
+                }));
+            }
+            
+            // Process nested lists
+            const nestedOl = liEl.querySelector(':scope > ol');
+            if (nestedOl) {
+                processOlItems(nestedOl as HTMLElement, level + 1);
+            }
+            
+            const nestedUl = liEl.querySelector(':scope > ul');
+            if (nestedUl) {
+                processUlItems(nestedUl as HTMLElement, level + 1);
+            }
+        });
+    };
+
     const processElement = (el: Element) => {
         const htmlEl = el as HTMLElement;
         
+        // Ignore style blocks, scripts, and hidden utility elements
+        if (['STYLE', 'SCRIPT', 'NOSCRIPT'].includes(htmlEl.tagName)) {
+            return;
+        }
+
         switch (htmlEl.tagName) {
             case 'H1':
                 const h1Runs = processNode(htmlEl);
@@ -1331,100 +1435,9 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
                 }
                 break;
             case 'UL':
-                // Process unordered list items with nesting support
-                const processUlItems = (ulElement: HTMLElement, level: number = 0) => {
-                    ulElement.querySelectorAll(':scope > li').forEach((li) => {
-                        const liEl = li as HTMLElement;
-                        
-                        // Process direct text/inline content
-                        const liRuns: any[] = [];
-                        Array.from(liEl.childNodes).forEach(child => {
-                            if (child.nodeType === Node.TEXT_NODE) {
-                                const text = child.textContent?.trim();
-                                if (text) {
-                                    liRuns.push(new TextRun({ text }));
-                                }
-                            } else if (child.nodeName !== 'UL' && child.nodeName !== 'OL') {
-                                const childRuns = processNode(child as HTMLElement);
-                                liRuns.push(...childRuns);
-                            }
-                        });
-                        
-                        if (liRuns.length > 0) {
-                            elements.push(new Paragraph({
-                                children: liRuns,
-                                alignment: getAlignment(liEl),
-                                bullet: {
-                                    level: Math.min(level, 8) // Max 9 levels (0-8)
-                                },
-                                spacing: {
-                                    after: 100,
-                                    line: 276
-                                }
-                            }));
-                        }
-                        
-                        // Process nested lists
-                        const nestedUl = liEl.querySelector(':scope > ul');
-                        if (nestedUl) {
-                            processUlItems(nestedUl as HTMLElement, level + 1);
-                        }
-                        
-                        const nestedOl = liEl.querySelector(':scope > ol');
-                        if (nestedOl) {
-                            processOlItems(nestedOl as HTMLElement, level + 1);
-                        }
-                    });
-                };
                 processUlItems(htmlEl);
                 break;
             case 'OL':
-                // Process ordered list items with nesting support
-                const processOlItems = (olElement: HTMLElement, level: number = 0) => {
-                    olElement.querySelectorAll(':scope > li').forEach((li) => {
-                        const liEl = li as HTMLElement;
-                        
-                        // Process direct text/inline content
-                        const liRuns: any[] = [];
-                        Array.from(liEl.childNodes).forEach(child => {
-                            if (child.nodeType === Node.TEXT_NODE) {
-                                const text = child.textContent?.trim();
-                                if (text) {
-                                    liRuns.push(new TextRun({ text }));
-                                }
-                            } else if (child.nodeName !== 'UL' && child.nodeName !== 'OL') {
-                                const childRuns = processNode(child as HTMLElement);
-                                liRuns.push(...childRuns);
-                            }
-                        });
-                        
-                        if (liRuns.length > 0) {
-                            elements.push(new Paragraph({
-                                children: liRuns,
-                                alignment: getAlignment(liEl),
-                                numbering: {
-                                    reference: 'ordered-list',
-                                    level: Math.min(level, 8) // Max 9 levels (0-8)
-                                },
-                                spacing: {
-                                    after: 100,
-                                    line: 276
-                                }
-                            }));
-                        }
-                        
-                        // Process nested lists
-                        const nestedOl = liEl.querySelector(':scope > ol');
-                        if (nestedOl) {
-                            processOlItems(nestedOl as HTMLElement, level + 1);
-                        }
-                        
-                        const nestedUl = liEl.querySelector(':scope > ul');
-                        if (nestedUl) {
-                            processUlItems(nestedUl as HTMLElement, level + 1);
-                        }
-                    });
-                };
                 processOlItems(htmlEl);
                 break;
             case 'TABLE':
@@ -1644,4 +1657,263 @@ export const exportAsDocx = async (htmlContent: string, filename: string, fileHa
     }
 };
 
+/**
+ * Exports a ResearchProject natively to a Word document.
+ * Bypasses HTML conversion entirely — directly creates DOCX structure from project data.
+ */
+export const exportResearchAsDocx = async (project: ResearchProject, fileHandle?: any): Promise<void> => {
+    const projectName = project.meta.projectName || 'Research Document';
+    const author = project.meta.author || 'Unknown Author';
+
+    // --- Build document children ---
+    const docChildren: (Paragraph | Table)[] = [];
+
+    // 1. Title
+    docChildren.push(
+        new Paragraph({
+            heading: HeadingLevel.TITLE,
+            alignment: AlignmentType.CENTER,
+            children: [
+                new TextRun({
+                    text: projectName,
+                    bold: true,
+                    size: 56, // 28pt
+                    font: 'Calibri',
+                }),
+            ],
+            spacing: { after: 200 },
+        })
+    );
+
+    // 2. Author line
+    docChildren.push(
+        new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [
+                new TextRun({ text: 'Author: ', size: 24, font: 'Calibri', color: '6B7280' }),
+                new TextRun({ text: author, size: 24, bold: true, font: 'Calibri', color: '374151' }),
+            ],
+            spacing: { after: 120 },
+        })
+    );
+
+    // 3. Date line
+    const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    docChildren.push(
+        new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [
+                new TextRun({ text: dateStr, size: 20, font: 'Calibri', color: '9CA3AF', italics: true }),
+            ],
+            spacing: { after: 480 },
+        })
+    );
+
+    // 4. Horizontal separator (empty para with border)
+    docChildren.push(
+        new Paragraph({
+            children: [],
+            border: {
+                bottom: {
+                    color: '6366F1',
+                    style: BorderStyle.SINGLE,
+                    size: 6,
+                },
+            },
+            spacing: { after: 480 },
+        })
+    );
+
+    // 5. Document content — parse HTML from the editor
+    if (project.documentContent && project.documentContent.trim() && project.documentContent !== '<p><br></p>') {
+        const contentElements = htmlToDocxElements(project.documentContent);
+        docChildren.push(...contentElements);
+    } else {
+        docChildren.push(
+            new Paragraph({
+                children: [
+                    new TextRun({ text: '(No document content yet)', italics: true, color: '9CA3AF', size: 22, font: 'Calibri' }),
+                ],
+                alignment: AlignmentType.CENTER,
+            })
+        );
+    }
+
+    // 6. Resources section (if any)
+    if (project.resources && project.resources.length > 0) {
+        // Page break before resources
+        docChildren.push(new Paragraph({ children: [new TextRun({ text: '', break: 1 } as any)] }));
+
+        // Section heading
+        docChildren.push(
+            new Paragraph({
+                heading: HeadingLevel.HEADING_2,
+                children: [
+                    new TextRun({ text: 'References & Resources Used', bold: true, size: 32, font: 'Calibri', color: '4F46E5' }),
+                ],
+                border: {
+                    top: {
+                        color: 'E5E7EB',
+                        style: BorderStyle.DASHED,
+                        size: 6,
+                    },
+                },
+                spacing: { before: 400, after: 200 },
+            })
+        );
+
+        // Resource list items
+        for (const resource of project.resources) {
+            const categoryLabel = resource.category.charAt(0).toUpperCase() + resource.category.slice(1);
+            docChildren.push(
+                new Paragraph({
+                    bullet: { level: 0 },
+                    children: [
+                        new TextRun({ text: resource.name, bold: true, size: 22, font: 'Calibri' }),
+                        new TextRun({ text: `  (${categoryLabel})`, size: 20, font: 'Calibri', color: '6B7280', italics: true }),
+                    ],
+                    spacing: { after: 80 },
+                })
+            );
+        }
+    }
+
+    // --- Build and save the document ---
+    const doc = new Document({
+        sections: [{
+            properties: {
+                page: {
+                    margin: {
+                        top: convertInchesToTwip(1.2),
+                        right: convertInchesToTwip(1.2),
+                        bottom: convertInchesToTwip(1.2),
+                        left: convertInchesToTwip(1.2),
+                    },
+                },
+            },
+            children: docChildren,
+        }],
+    });
+
+    const blob = await Packer.toBlob(doc);
+    const filename = `${projectName}.docx`;
+
+    if (fileHandle) {
+        const writable = await fileHandle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        console.log('✅ Research Word document saved to selected location!');
+    } else {
+        saveAs(blob, filename);
+        console.log('✅ Research Word document downloaded:', filename);
+    }
+};
+
+/**
+ * Exports a ResearchProject to PDF via the browser print dialog.
+ * Generates fully-styled HTML and triggers print.
+ */
+export const exportResearchAsPdf = (project: ResearchProject): void => {
+    const projectName = project.meta.projectName || 'Research Document';
+    const author = project.meta.author || 'Unknown Author';
+    const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+    let resourcesSection = '';
+    if (project.resources && project.resources.length > 0) {
+        const items = project.resources.map(r => {
+            const cat = r.category.charAt(0).toUpperCase() + r.category.slice(1);
+            return `<li><strong>${r.name}</strong> <em style="color:#6B7280">(${cat})</em></li>`;
+        }).join('');
+        resourcesSection = `
+            <div style="margin-top:3em;padding-top:1.5em;border-top:2px dashed #E5E7EB;">
+                <h2 style="color:#4F46E5;font-size:1.4em;margin-bottom:0.8em;">References &amp; Resources Used</h2>
+                <ul style="line-height:2;">${items}</ul>
+            </div>`;
+    }
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>${projectName}</title>
+<style>
+  @media print {
+    @page { size: A4; margin: 2cm; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+  body {
+    font-family: 'Georgia', serif;
+    line-height: 1.8;
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    padding: 2cm;
+    box-sizing: border-box;
+    background: white;
+    color: #1F2937;
+  }
+  .cover {
+    text-align: center;
+    padding-bottom: 2em;
+    margin-bottom: 2em;
+    border-bottom: 3px solid #6366F1;
+  }
+  .cover h1 {
+    font-size: 2.8em;
+    color: #4F46E5;
+    margin-bottom: 0.2em;
+    letter-spacing: -0.02em;
+  }
+  .cover .author { font-size: 1.2em; color: #374151; margin-top: 0; }
+  .cover .date { font-size: 0.9em; color: #9CA3AF; font-style: italic; }
+  h1,h2,h3 { color: #1F2937; }
+  img { max-width: 100%; height: auto; }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+  th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+  th { background-color: #f2f2f2; }
+  blockquote { border-left: 4px solid #6366F1; padding-left: 1em; margin-left: 0; color: #666; }
+</style>
+</head>
+<body>
+  <div class="cover">
+    <h1>${projectName}</h1>
+    <p class="author">Author: <strong>${author}</strong></p>
+    <p class="date">${dateStr}</p>
+  </div>
+  <div class="content">
+    ${project.documentContent || '<p style="color:#9CA3AF;font-style:italic;text-align:center;">No document content yet.</p>'}
+  </div>
+  ${resourcesSection}
+</body>
+</html>`;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;width:0;height:0;border:none;';
+    document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentWindow?.document;
+    if (!iframeDoc) {
+        document.body.removeChild(iframe);
+        return;
+    }
+
+    // Store old title, set new one for print dialog
+    const oldTitle = document.title;
+    document.title = projectName;
+
+    iframeDoc.open();
+    iframeDoc.write(html);
+    iframeDoc.close();
+
+    iframe.onload = () => {
+        setTimeout(() => {
+            iframe.contentWindow?.focus();
+            iframe.contentWindow?.print();
+            setTimeout(() => {
+                document.body.removeChild(iframe);
+                document.title = oldTitle;
+            }, 1000);
+        }, 150);
+    };
+};
 

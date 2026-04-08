@@ -113,3 +113,67 @@ export interface TranscriptionError {
   original: string;
   suggestion: string;
 }
+
+// ─── Research Component Types ──────────────────────────────────────────────────
+
+export interface ResearchProjectMeta {
+  projectName: string;
+  author: string;
+}
+
+export type ResourceCategory = 'scheme' | 'notes' | 'images';
+
+export interface ResearchResource {
+  id: string;
+  category: ResourceCategory;
+  name: string;
+  content?: string;       // text content for notes/schemes
+  fileDataUrl?: string;   // compressed base64 data URL for images
+  mimeType?: string;
+  addedAt: number;
+}
+
+export type AiApproach =
+  | 'resource-grounded'
+  | 'resource-knowledge'
+  | 'resource-knowledge-internet';
+
+export type NoteType = 'deep' | 'context' | 'exemplary';
+
+export interface NoteGenerationConfig {
+  approach: AiApproach;
+  ageGroup: string;
+  noteType: NoteType;
+  selectedResourceIds?: string[];
+  topic?: string;
+  customInstructions?: string;
+}
+
+export type TruthSource = 'topic' | 'resource';
+export type QuestionType = 'knowledge' | 'comprehension' | 'mixed';
+export type QaMode = 'test' | 'quiz';
+
+export interface QaConfig {
+  mode: QaMode;
+  truthSource: TruthSource;
+  topic?: string;
+  selectedResourceIds?: string[];
+  questionType: QuestionType;
+  questionCount?: number;
+  playerCount?: number;
+  playerNames?: string[];
+  timerEnabled?: boolean;
+  includeAnswers?: boolean;
+  answerPlacement?: 'along' | 'under';
+  questionsPerPlayer?: number;
+}
+
+export interface ResearchProject {
+  id: string;
+  meta: ResearchProjectMeta;
+  resources: ResearchResource[];
+  documentContent: string;
+  userId: string;
+  createdAt: number;
+  updatedAt: number;
+}

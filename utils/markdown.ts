@@ -75,6 +75,7 @@ export const markdownToHtml = (markdown: string): string => {
   let paragraphBuffer: string[] = [];
   let listBuffer: string[] = [];
   let blockquoteBuffer: string[] = [];
+  let tableBuffer: string[] = [];
   
   const flushParagraph = () => {
     if (paragraphBuffer.length > 0) {
@@ -99,10 +100,39 @@ export const markdownToHtml = (markdown: string): string => {
     }
   };
   
+  const flushTable = () => {
+    if (tableBuffer.length > 0) {
+      let tableHtml = '<div class="overflow-x-auto my-4"><table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg">';
+      tableBuffer.forEach((row, i) => {
+        let cells = row.split('|').map(c => c.trim());
+        if (cells[0] === '') cells.shift();
+        if (cells[cells.length - 1] === '') cells.pop();
+        if (cells.every(c => c.match(/^[:-\\s]+$/))) {
+          if (i === 1) tableHtml += '</thead><tbody class="divide-y divide-gray-200 dark:divide-gray-700">';
+          return;
+        }
+        if (i === 0) {
+          tableHtml += '<thead class="bg-gray-50 dark:bg-gray-800"><tr>';
+          cells.forEach(c => tableHtml += `<th class="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 tracking-wider">${parseInline(c)}</th>`);
+          tableHtml += '</tr>';
+        } else {
+          tableHtml += '<tr class="bg-white dark:bg-gray-900">';
+          cells.forEach(c => tableHtml += `<td class="px-4 py-3 whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300 border-t border-gray-200 dark:border-gray-700">${parseInline(c)}</td>`);
+          tableHtml += '</tr>';
+        }
+      });
+      tableHtml += tableBuffer.length > 1 ? '</tbody>' : '</thead>';
+      tableHtml += '</table></div>';
+      html += tableHtml;
+      tableBuffer = [];
+    }
+  };
+  
   const flushAll = () => {
     flushParagraph();
     flushList();
     flushBlockquote();
+    flushTable();
   };
   
   lines.forEach((line) => {
@@ -122,6 +152,15 @@ export const markdownToHtml = (markdown: string): string => {
     }
     
     flushList();
+    
+    if (trimmedLine.startsWith('|')) {
+      flushParagraph();
+      flushBlockquote();
+      tableBuffer.push(line);
+      return;
+    }
+    
+    flushTable();
     
     if (trimmedLine.startsWith('>')) {
       flushParagraph();

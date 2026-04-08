@@ -22,6 +22,7 @@ interface NoteEditorProps {
   onOpenHelpMeThink: () => void;
   zoomLevel: number;
   onToggleFind: (visible: boolean) => void;
+  flatMode?: boolean;
   availableDocuments?: DocumentOption[];
   currentDocumentId?: string;
   onSwitchDocument?: (documentId: string) => void;
@@ -271,7 +272,7 @@ const ContextMenu: React.FC<{
 };
 
 
-export const NoteEditor = forwardRef<NoteEditorHandles, NoteEditorProps>(({ content, setContent, scrollContainerRef, onOpenHelpMeThink, zoomLevel, onToggleFind, availableDocuments = [], currentDocumentId, onSwitchDocument, onInsertToDocument }, ref) => {
+export const NoteEditor = forwardRef<NoteEditorHandles, NoteEditorProps>(({ content, setContent, scrollContainerRef, onOpenHelpMeThink, zoomLevel, onToggleFind, flatMode, availableDocuments = [], currentDocumentId, onSwitchDocument, onInsertToDocument }, ref) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const selectionRef = useRef<Range | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({ visible: false, x: 0, y: 0, type: 'general' });
@@ -1431,7 +1432,7 @@ ${selectedText}
 
   return (
     <>
-       <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl border-2 border-gray-200/80 dark:border-gray-700/80" style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top left' }}>
+       <div className={`relative ${flatMode ? 'h-full' : 'bg-white dark:bg-gray-800 rounded-2xl shadow-xl border-2 border-gray-200/80 dark:border-gray-700/80'}`} style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top left' }}>
         {/* Placeholder Text - Shows when editor is empty */}
         {(!content || content.trim() === '' || content === '<p><br></p>' || content === '<p></p>') && (
           <div 
@@ -1448,23 +1449,23 @@ ${selectedText}
           </div>
         )}
         
-        <div
-          data-note-editor-root="true"
-          ref={editorRef}
-          contentEditable
-          onInput={handleInput}
-          onClick={handleEditorClick}
-          onContextMenu={handleContextMenu}
-          onPaste={handlePaste}
-            className="w-full leading-relaxed focus:outline-none p-8 sm:p-12 md:p-16 relative z-10"
-          style={{ 
-            minHeight: '80vh',
-            wordBreak: 'break-word',
-            overflowWrap: 'break-word',
+          <div
+            data-note-editor-root="true"
+            ref={editorRef}
+            contentEditable
+            onInput={handleInput}
+            onClick={handleEditorClick}
+            onContextMenu={handleContextMenu}
+            onPaste={handlePaste}
+            className={`w-full leading-relaxed focus:outline-none relative z-10 ${flatMode ? 'p-2 sm:p-6 md:p-8' : 'p-8 sm:p-12 md:p-16'}`}
+            style={{ 
+              minHeight: '80vh',
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word',
               fontSize: '11pt',
               fontFamily: 'Calibri, Arial, sans-serif',
-          }}
-        />
+            }}
+          />
         {selectedElement?.tagName === 'IMG' && (
             <ImageControls 
                 imageEl={selectedElement as HTMLImageElement}
