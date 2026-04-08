@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { XIcon, SparklesIcon } from '../icons';
 import { NoteGenerationConfig, AiApproach, NoteType, ResearchResource } from '../../types';
 import { generateNotes } from '../../services/researchAiService';
+import { markdownToHtml } from '../../utils/markdown';
 
 interface NoteConfigModalProps {
   resources: ResearchResource[];
@@ -95,7 +96,8 @@ export const NoteConfigModal: React.FC<NoteConfigModalProps> = ({
         topic: topic.trim(),
         customInstructions: customInstructions.trim()
       };
-      const html = await generateNotes(config, resources);
+      const markdownText = await generateNotes(config, resources);
+      const html = markdownToHtml(markdownText);
       // Build a meaningful heading from config
       const noteTypeLabel = noteType === 'deep' ? 'Deep Notes' : noteType === 'context' ? 'Context Notes' : 'Exemplary Notes';
       const topicLabel = topic.trim() ? `– ${topic.trim()}` : '';

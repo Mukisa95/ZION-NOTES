@@ -143,29 +143,24 @@ export const generateTest = async (
       ? 'Use ONLY the provided resources.'
       : `Topic: "${config.topic || 'general knowledge'}". Use your knowledge.`;
 
-  let formatInstruction = `Format EACH question as HTML exactly like this:
-<div class="test-question" style="margin:1em 0; padding:1em; border-left:4px solid #6366f1; background:#f8f7ff;">
-  <p><strong>Q[N].</strong> [Question text]</p>
-  <p style="color:#6366f1;"><em>Answer:</em> [Detailed correct answer]</p>
-</div>`;
+  let formatInstruction = `Format the test using STANDARD MARKDOWN (Do NOT write HTML tags. DO NOT wrap output in markdown code blocks like \`\`\`markdown):
+**Q[N].** [Question text]
+
+*Answer:* [Detailed correct answer]
+`;
 
   if (config.includeAnswers === false) {
-    formatInstruction = `Format EACH question as HTML exactly like this:
-<div class="test-question" style="margin:1em 0; padding:1em; border-left:4px solid #6366f1; background:#f8f7ff;">
-  <p><strong>Q[N].</strong> [Question text]</p>
-</div>
+    formatInstruction = `Format the test using STANDARD MARKDOWN (Do NOT write HTML tags. DO NOT wrap output in code blocks):
+**Q[N].** [Question text]
+
 Do NOT include the answers. Provide ONLY the questions.`;
   } else if (config.answerPlacement === 'under') {
-    formatInstruction = `Format the test in two distinct sections as HTML:
+    formatInstruction = `Format the test in two distinct sections using STANDARD MARKDOWN (Do NOT write HTML tags. DO NOT wrap output in code blocks):
 1. A "Questions" section with all questions formatted exactly like this:
-<div class="test-question" style="margin:1em 0; padding:1em; border-left:4px solid #6366f1; background:#f8f7ff;">
-  <p><strong>Q[N].</strong> [Question text]</p>
-</div>
+**Q[N].** [Question text]
 
 2. An "Answers" section at the VERY BOTTOM containing all answers formatted exactly like this:
-<div class="test-answer" style="margin:1em 0; padding:1em; color:#6366f1;">
-  <p><strong>A[N].</strong> [Detailed correct answer]</p>
-</div>`;
+**A[N].** [Detailed correct answer]`;
   }
 
   const prompt = `Generate exactly ${count} questions for a formal test.

@@ -277,7 +277,7 @@ export const ResearchWorkspace: React.FC<ResearchWorkspaceProps> = ({
             </button>
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto min-h-0">
             <ResourcePane
               resources={project.resources}
               onChange={handleResourcesChange}
@@ -288,6 +288,7 @@ export const ResearchWorkspace: React.FC<ResearchWorkspaceProps> = ({
                 }
               }}
               activeDocumentId={activeDocumentId}
+              userId={userId}
             />
           </div>
         </div>

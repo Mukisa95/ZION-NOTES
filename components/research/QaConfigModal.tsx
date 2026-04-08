@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { XIcon } from '../icons';
 import { QaConfig, QaMode, TruthSource, QuestionType, ResearchResource } from '../../types';
 import { generateTest } from '../../services/researchAiService';
+import { markdownToHtml } from '../../utils/markdown';
 
 interface QaConfigModalProps {
   resources: ResearchResource[];
@@ -61,7 +62,8 @@ export const QaConfigModal: React.FC<QaConfigModalProps> = ({
     };
     try {
       if (mode === 'test') {
-        const html = await generateTest(config, resources);
+        const markdownText = await generateTest(config, resources);
+        const html = markdownToHtml(markdownText);
         // Build a heading
         const sourceLabel = truthSource === 'topic' && topic ? `– ${topic}` : '';
         const heading = `Questions & Answers${sourceLabel}`;

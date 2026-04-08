@@ -362,7 +362,7 @@ export const DocumentPane: React.FC<DocumentPaneProps> = ({
         onPointerCancelCapture={handlePointerCancelCapture}
         onMouseUpCapture={handleMouseUpCapture}
       >
-        <div className="w-full max-w-4xl mx-auto h-full flex flex-col p-4">
+        <div className="w-full max-w-4xl mx-auto h-full flex flex-col pt-2 sm:pt-4 px-2 sm:px-4 md:px-6">
             <NoteEditor
                 ref={actualEditorRef}
                 content={content}
@@ -371,6 +371,7 @@ export const DocumentPane: React.FC<DocumentPaneProps> = ({
                 zoomLevel={zoomLevel}
                 onToggleFind={onToggleFind}
                 currentDocumentId={activeDocumentId}
+                flatMode={true}
             />
         </div>
       </div>

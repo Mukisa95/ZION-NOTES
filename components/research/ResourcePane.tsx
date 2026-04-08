@@ -1,12 +1,14 @@
 import React, { useState, useRef } from 'react';
 import { PlusIcon, TrashIcon, ChevronDownIcon, ChevronUpIcon, ImageIcon, DocumentIcon, UploadIcon } from '../icons';
 import { ResearchResource, ResourceCategory } from '../../types';
+import { NativeDocumentSelector } from './NativeDocumentSelector';
 
 interface ResourcePaneProps {
   resources: ResearchResource[];
   onChange: (resources: ResearchResource[]) => void;
   onOpenResource?: (id: string) => void;
   activeDocumentId?: string;
+  userId?: string | null;
 }
 
 type SectionState = {
@@ -66,7 +68,13 @@ const CATEGORY_CONFIG = {
   },
 };
 
-export const ResourcePane: React.FC<ResourcePaneProps> = ({ resources, onChange, onOpenResource, activeDocumentId }) => {
+export const ResourcePane: React.FC<ResourcePaneProps> = ({
+  resources,
+  onChange,
+  onOpenResource,
+  activeDocumentId,
+  userId,
+}) => {
   const [sections, setSections] = useState<Record<ResourceCategory, SectionState>>({
     scheme: { expanded: false, uploading: false },
     notes: { expanded: false, uploading: false },
@@ -177,7 +185,7 @@ export const ResourcePane: React.FC<ResourcePaneProps> = ({ resources, onChange,
   const categories: ResourceCategory[] = ['scheme', 'notes', 'images'];
 
   return (
-    <div className="flex flex-col gap-3 p-3 overflow-y-auto h-full">
+    <div className="flex flex-col gap-3 p-3">
       {categories.map(cat => {
         const cfg = CATEGORY_CONFIG[cat];
         const catResources = resources.filter(r => r.category === cat);
@@ -278,6 +286,24 @@ export const ResourcePane: React.FC<ResourcePaneProps> = ({ resources, onChange,
                       : 'Upload File (docs, pdf, images)'}
                   </button>
                 </div>
+
+                {/* Native Document Select */}
+                {cat !== 'images' && (
+                  <NativeDocumentSelector 
+                    userId={userId} 
+                    onSelectMultiple={(docs) => {
+                      const newResources = docs.map(doc => ({
+                        id: `res_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+                        category: cat,
+                        name: doc.name,
+                        content: doc.content || '',
+                        addedAt: Date.now(),
+                      }));
+                      onChange([...resources, ...newResources]);
+                    }} 
+                    disabled={uploading} 
+                  />
+                )}
               </div>
             )}
 
