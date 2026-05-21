@@ -12,6 +12,13 @@ export interface Ware {
     updatedAt: number;
 }
 
+export interface WareUpdates {
+    name?: string;
+    documentIds?: string[];
+    color?: string;
+    updatedAt?: number;
+}
+
 const DB_NAME = 'AINoteTakerDB';
 const STORE_NAME = 'wares';
 const DB_VERSION = 2; // Increment to add wares store
@@ -77,7 +84,12 @@ export const saveWare = async (name: string, documentIds: string[] = [], color?:
 /**
  * Update an existing WARE
  */
-export const updateWare = async (id: string, name: string, documentIds: string[], color?: string): Promise<Ware> => {
+export const updateWare = async (
+    id: string,
+    nameOrUpdates: string | WareUpdates,
+    documentIds?: string[],
+    color?: string
+): Promise<Ware> => {
     const database = await initDB();
 
     return new Promise((resolve, reject) => {
@@ -87,12 +99,20 @@ export const updateWare = async (id: string, name: string, documentIds: string[]
 
         getRequest.onsuccess = () => {
             const existingWare = getRequest.result;
+            const updates: WareUpdates = typeof nameOrUpdates === 'string'
+                ? {
+                    name: nameOrUpdates,
+                    documentIds: documentIds ?? existingWare.documentIds,
+                    color
+                }
+                : nameOrUpdates;
             const updatedWare: Ware = {
                 ...existingWare,
-                name,
-                documentIds,
-                color: color !== undefined ? color : existingWare.color,
-                updatedAt: Date.now()
+                ...updates,
+                name: updates.name ?? existingWare.name,
+                documentIds: updates.documentIds ?? existingWare.documentIds,
+                color: updates.color !== undefined ? updates.color : existingWare.color,
+                updatedAt: updates.updatedAt ?? Date.now()
             };
 
             const putRequest = store.put(updatedWare);
@@ -156,4 +176,3 @@ export const deleteWare = async (id: string): Promise<void> => {
         request.onerror = () => reject(request.error);
     });
 };
-

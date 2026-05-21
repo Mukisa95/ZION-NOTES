@@ -88,6 +88,7 @@ export interface AiPreviewState {
 
 export interface NoteEditorHandles {
   format: (type: FormatType, value?: string) => void;
+  applyFontSize: (value: string) => void;
   clear: () => void;
   appendText: (html: string) => void;
   find: (query: string, options: { matchCase: boolean }) => { total: number; current: number; };

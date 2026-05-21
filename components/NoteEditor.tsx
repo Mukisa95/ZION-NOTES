@@ -292,6 +292,193 @@ export const NoteEditor = forwardRef<NoteEditorHandles, NoteEditorProps>(({ cont
   const searchResultsRef = useRef<{ ranges: Range[], currentIndex: number }>({ ranges: [], currentIndex: -1 });
   // @ts-ignore: CSS.highlights is a new API and might not be in all TS lib versions.
   const highlightsRef = useRef<{ all: Highlight, current: Highlight } | null>(null);
+  const DEFAULT_FONT_SIZE_PT = 11;
+
+  const htmlFontSizeMap: Record<string, number> = {
+    '1': 8,
+    '2': 10,
+    '3': 12,
+    '4': 14,
+    '5': 18,
+    '6': 24,
+    '7': 36,
+  };
+
+  const formatPt = (value: number) => `${Math.round(value * 100) / 100}pt`;
+
+  const parseFontSizeToPt = (value?: string | null): number | null => {
+    if (!value) return null;
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return null;
+
+    if (normalized in htmlFontSizeMap) {
+      return htmlFontSizeMap[normalized];
+    }
+
+    const numericMatch = normalized.match(/^(-?\d+(\.\d+)?)(pt|px|em|rem|%)?$/);
+    if (!numericMatch) return null;
+
+    const amount = parseFloat(numericMatch[1]);
+    const unit = numericMatch[3] || 'pt';
+
+    switch (unit) {
+      case 'pt':
+        return amount;
+      case 'px':
+        return amount * 0.75;
+      case 'em':
+      case 'rem':
+        return amount * DEFAULT_FONT_SIZE_PT;
+      case '%':
+        return (amount / 100) * DEFAULT_FONT_SIZE_PT;
+      default:
+        return amount;
+    }
+  };
+
+  const normalizeFontSizeValue = (value?: string | null): string | null => {
+    const points = parseFontSizeToPt(value);
+    return points ? formatPt(points) : null;
+  };
+
+  const unwrapElement = (element: HTMLElement) => {
+    const parent = element.parentNode;
+    if (!parent) return;
+
+    while (element.firstChild) {
+      parent.insertBefore(element.firstChild, element);
+    }
+    parent.removeChild(element);
+  };
+
+  const mergeAdjacentStyledSpans = (root: HTMLElement) => {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+    const spans: HTMLElement[] = [];
+    let currentNode = walker.nextNode();
+    while (currentNode) {
+      if ((currentNode as HTMLElement).tagName === 'SPAN') {
+        spans.push(currentNode as HTMLElement);
+      }
+      currentNode = walker.nextNode();
+    }
+
+    spans.forEach(span => {
+      let nextSibling = span.nextSibling;
+      while (
+        nextSibling &&
+        nextSibling.nodeType === Node.ELEMENT_NODE &&
+        (nextSibling as HTMLElement).tagName === 'SPAN' &&
+        (nextSibling as HTMLElement).getAttribute('style') === span.getAttribute('style')
+      ) {
+        const nextSpan = nextSibling as HTMLElement;
+        while (nextSpan.firstChild) {
+          span.appendChild(nextSpan.firstChild);
+        }
+        nextSibling = nextSpan.nextSibling;
+        nextSpan.remove();
+      }
+    });
+  };
+
+  const normalizeEditorTypography = (root: HTMLElement): string => {
+    const fontElements = Array.from(root.querySelectorAll('font')) as HTMLElement[];
+    fontElements.forEach(fontEl => {
+      const span = document.createElement('span');
+      const size = normalizeFontSizeValue(fontEl.getAttribute('size') || fontEl.style.fontSize);
+      if (size) {
+        span.style.fontSize = size;
+      }
+      if (fontEl.getAttribute('face')) {
+        span.style.fontFamily = fontEl.getAttribute('face') || '';
+      }
+      if (fontEl.getAttribute('color')) {
+        span.style.color = fontEl.getAttribute('color') || '';
+      }
+      while (fontEl.firstChild) {
+        span.appendChild(fontEl.firstChild);
+      }
+      fontEl.replaceWith(span);
+    });
+
+    const elements = Array.from(root.querySelectorAll('*')) as HTMLElement[];
+    elements.forEach(element => {
+      if (element.style.fontSize) {
+        const normalizedSize = normalizeFontSizeValue(element.style.fontSize);
+        if (normalizedSize) {
+          element.style.fontSize = normalizedSize;
+        } else {
+          element.style.removeProperty('font-size');
+        }
+      }
+
+      const parentElement = element.parentElement;
+      if (
+        element.tagName === 'SPAN' &&
+        parentElement &&
+        element.style.fontSize &&
+        normalizeFontSizeValue(element.style.fontSize) === normalizeFontSizeValue(parentElement.style.fontSize)
+      ) {
+        element.style.removeProperty('font-size');
+      }
+
+      if (
+        element.tagName === 'SPAN' &&
+        !element.getAttribute('style') &&
+        !element.getAttribute('class') &&
+        !element.getAttribute('id')
+      ) {
+        unwrapElement(element);
+      }
+    });
+
+    mergeAdjacentStyledSpans(root);
+    return root.innerHTML;
+  };
+
+  const getNormalizedEditorHtml = () => {
+    if (!editorRef.current) return content;
+    return normalizeEditorTypography(editorRef.current);
+  };
+
+  const applyFontSize = (value: string) => {
+    if (!editorRef.current) return;
+
+    editorRef.current.focus();
+    document.execCommand('styleWithCSS', false, 'true');
+    document.execCommand('fontSize', false, '7');
+
+    const selection = window.getSelection();
+    let scope: ParentNode = editorRef.current;
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      const anchorNode = range.commonAncestorContainer.nodeType === Node.TEXT_NODE
+        ? range.commonAncestorContainer.parentNode
+        : range.commonAncestorContainer;
+
+      if (anchorNode && editorRef.current.contains(anchorNode)) {
+        scope = anchorNode as ParentNode;
+      }
+    }
+
+    const fontNodes = Array.from(scope.querySelectorAll?.('font[size="7"]') || []);
+    if (fontNodes.length === 0) {
+      Array.from(editorRef.current.querySelectorAll('font[size="7"]')).forEach(node => fontNodes.push(node));
+    }
+
+    fontNodes.forEach(fontNode => {
+      const span = document.createElement('span');
+      span.style.fontSize = value;
+      while (fontNode.firstChild) {
+        span.appendChild(fontNode.firstChild);
+      }
+      fontNode.replaceWith(span);
+    });
+
+    const normalizedHtml = getNormalizedEditorHtml();
+    if (content !== normalizedHtml) {
+      setContent(normalizedHtml);
+    }
+  };
 
 
   const triggerUpdate = () => {
@@ -871,6 +1058,7 @@ ${selectedText}
 
   useImperativeHandle(ref, () => ({
     format: handleFormat,
+    applyFontSize,
     clear: handleClear,
     appendText: appendText,
     getSelectionHtml: () => {
@@ -991,7 +1179,7 @@ ${selectedText}
   }));
 
   const handleInput = (e: React.FormEvent<HTMLDivElement>) => {
-    const newContent = e.currentTarget.innerHTML;
+    const newContent = getNormalizedEditorHtml();
     if (content !== newContent) {
       setContent(newContent);
     }
@@ -1021,6 +1209,17 @@ ${selectedText}
             return; // Stop after handling the first image
         }
     }
+
+    const html = clipboardData.getData('text/html');
+    if (html) {
+      e.preventDefault();
+      const container = document.createElement('div');
+      container.innerHTML = html;
+      const normalizedHtml = normalizeEditorTypography(container);
+      document.execCommand('insertHTML', false, normalizedHtml);
+      triggerUpdate();
+      return;
+    }
   };
 
   const closeContextMenu = useCallback(() => {
@@ -1040,6 +1239,10 @@ ${selectedText}
   useEffect(() => {
       if (editorRef.current && content !== editorRef.current.innerHTML) {
           editorRef.current.innerHTML = content;
+          const normalizedHtml = getNormalizedEditorHtml();
+          if (normalizedHtml !== content) {
+            setContent(normalizedHtml);
+          }
       }
   }, [content]);
 

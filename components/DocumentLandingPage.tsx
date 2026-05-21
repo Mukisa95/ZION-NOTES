@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { PlusIcon, DocumentIcon, TrashIcon, SearchIcon, CloudIcon, SettingsIcon, FolderIcon, CheckIcon, EditIcon, BeakerIcon } from './icons';
 import { AiProvider, ResearchProject } from '../types';
 import { getAllResearchProjectsFromFirestore, deleteResearchProjectFromFirestore } from '../services/researchFirestoreService';
-import { SavedDocument, getAllDocuments, saveDocument } from '../services/documentStorage';
+import { SavedDocument, getAllDocuments, saveDocument, updateDocument } from '../services/documentStorage';
 import { getAllDocumentsFromFirestore, deleteDocumentFromFirestore, saveDocumentToFirestore } from '../services/firestoreService';
 import { UserProfile } from './UserProfile';
 import { AuthModal } from './AuthModal';
@@ -384,11 +384,11 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
             const doc = documents.find(d => d.id === renameTarget.id);
             if (!doc) return;
             
-            const updatedDoc = { ...doc, name: newName };
             if (userId && !incognitoMode) {
+                const updatedDoc = { ...doc, name: newName };
                 await saveDocumentToFirestore(userId, updatedDoc);
             } else {
-                await saveDocument(updatedDoc);
+                await updateDocument(doc.id, newName, doc.content);
             }
             await loadDocuments();
             setRenameDialogOpen(false);
@@ -397,6 +397,26 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
             console.error('Error renaming document:', error);
             alert('Failed to rename document');
         }
+    };
+
+    const removeDocumentIdsFromAllWares = async (documentIds: string[]) => {
+        if (documentIds.length === 0) return;
+
+        const idsToRemove = new Set(documentIds);
+        const waresToUpdate = wares.filter(ware => ware.documentIds.some(id => idsToRemove.has(id)));
+
+        await Promise.all(waresToUpdate.map(async (ware) => {
+            const nextDocumentIds = ware.documentIds.filter(id => !idsToRemove.has(id));
+
+            if (userId && !incognitoMode) {
+                await updateWareInFirestore(userId, ware.id, {
+                    documentIds: nextDocumentIds,
+                    updatedAt: Date.now()
+                });
+            } else {
+                await updateWare(ware.id, { documentIds: nextDocumentIds });
+            }
+        }));
     };
 
     const handleMoveDocumentsToWare = async (targetWareId: string) => {
@@ -447,6 +467,8 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
         if (!confirm(`Delete ${selectedDocIds.length} document(s)? This action cannot be undone.`)) return;
         
         try {
+            await removeDocumentIdsFromAllWares(selectedDocIds);
+
             for (const docId of selectedDocIds) {
                 if (userId && !incognitoMode) {
                     await deleteDocumentFromFirestore(userId, docId);
@@ -457,6 +479,7 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
             }
             setSelectedDocIds([]);
             await loadDocuments();
+            await loadWares();
         } catch (error) {
             console.error('Error deleting documents:', error);
             alert('Failed to delete documents');
@@ -467,6 +490,8 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
         e.stopPropagation();
         if (confirm('Are you sure you want to delete this document?')) {
             try {
+                await removeDocumentIdsFromAllWares([id]);
+
                 if (userId && !incognitoMode) {
                     // Delete from Firestore
                     await deleteDocumentFromFirestore(userId, id);
@@ -476,6 +501,7 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                     await deleteDocument(id);
                 }
                 loadDocuments();
+                loadWares();
             } catch (error) {
                 console.error('Error deleting document:', error);
                 alert('Failed to delete document');
@@ -1257,6 +1283,10 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                     onOpenDocument={onOpenDocument}
                     onOpenDocuments={onOpenDocuments}
                     onDeleteWare={handleDeleteWare}
+                    onWareUpdated={(updatedWare) => {
+                        setSelectedWare(updatedWare);
+                        setWares(prev => prev.map(ware => ware.id === updatedWare.id ? updatedWare : ware));
+                    }}
                     onAddDocuments={() => {
                         setIsAddDocumentsModalOpen(true);
                     }}

@@ -52,6 +52,23 @@ const useClickOutside = (ref: React.RefObject<HTMLElement>, callback: () => void
     }, [ref, callback]);
 };
 
+const normalizeFontSizeForToolbar = (fontSize?: string | null): string => {
+    if (!fontSize) return '11pt';
+    const normalized = fontSize.trim().toLowerCase();
+    const match = normalized.match(/^(-?\d+(\.\d+)?)(pt|px|em|rem|%)?$/);
+    if (!match) return fontSize;
+
+    const amount = parseFloat(match[1]);
+    const unit = match[3] || 'pt';
+    let points = amount;
+
+    if (unit === 'px') points = amount * 0.75;
+    if (unit === 'em' || unit === 'rem') points = amount * 11;
+    if (unit === '%') points = (amount / 100) * 11;
+
+    return `${Math.round(points * 100) / 100}pt`;
+};
+
 
 const FormattingToolbar: React.FC<{
   onFormat: (type: FormatType, value?: string) => void;
@@ -121,7 +138,7 @@ const FormattingToolbar: React.FC<{
 
             // Get font family
             const range = selection.getRangeAt(0);
-            let node = range.commonAncestorContainer;
+            let node = range.startContainer;
             if (node.nodeType === Node.TEXT_NODE) {
                 node = node.parentNode as Node;
             }
@@ -138,14 +155,11 @@ const FormattingToolbar: React.FC<{
 
             // Get font size
             if (element.style?.fontSize) {
-                formats.fontSize = element.style.fontSize;
+                formats.fontSize = normalizeFontSizeForToolbar(element.style.fontSize);
             } else {
                 const computed = window.getComputedStyle(element);
                 if (computed.fontSize) {
-                    // Convert px to pt if needed
-                    const pxSize = parseFloat(computed.fontSize);
-                    const ptSize = Math.round(pxSize * 0.75);
-                    formats.fontSize = ptSize + 'pt';
+                    formats.fontSize = normalizeFontSizeForToolbar(computed.fontSize);
                 }
             }
 
@@ -193,12 +207,7 @@ const FormattingToolbar: React.FC<{
         const selection = window.getSelection();
         const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null;
         
-        document.execCommand('fontSize', false, '7');
-        const fontElements = document.querySelectorAll('font[size="7"]');
-        fontElements.forEach(element => {
-            element.removeAttribute('size');
-            (element as HTMLElement).style.fontSize = e.target.value;
-        });
+        editorRef.current?.applyFontSize(e.target.value);
         
         // Restore the selection using requestAnimationFrame for better timing
         requestAnimationFrame(() => {

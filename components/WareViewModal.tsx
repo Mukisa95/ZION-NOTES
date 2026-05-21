@@ -12,6 +12,7 @@ interface WareViewModalProps {
     onOpenDocument: (doc: SavedDocument) => void;
     onOpenDocuments: (docs: SavedDocument[]) => void;
     onDeleteWare: () => Promise<void>;
+    onWareUpdated?: (ware: Ware) => void;
     userId?: string | null;
     incognitoMode?: boolean;
     onAddDocuments?: () => void;
@@ -24,6 +25,7 @@ export const WareViewModal: React.FC<WareViewModalProps> = ({
     onOpenDocument,
     onOpenDocuments,
     onDeleteWare,
+    onWareUpdated,
     userId,
     incognitoMode = false,
     onAddDocuments
@@ -114,8 +116,14 @@ export const WareViewModal: React.FC<WareViewModalProps> = ({
             const updatedDocumentIds = ware.documentIds.filter(id => !selectedDocIds.includes(id));
             if (userId && !incognitoMode) {
                 await updateWareInFirestore(userId, ware.id, { documentIds: updatedDocumentIds });
+                onWareUpdated?.({
+                    ...ware,
+                    documentIds: updatedDocumentIds,
+                    updatedAt: Date.now()
+                });
             } else {
-                await updateWare(ware.id, { documentIds: updatedDocumentIds });
+                const updatedWare = await updateWare(ware.id, { documentIds: updatedDocumentIds });
+                onWareUpdated?.(updatedWare);
             }
 
             // Reload documents
