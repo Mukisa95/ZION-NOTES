@@ -3,7 +3,12 @@
   publish = "dist"
 
 [[redirects]]
+  from = "/api/nvidia/*"
+  to = "https://integrate.api.nvidia.com/v1/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-

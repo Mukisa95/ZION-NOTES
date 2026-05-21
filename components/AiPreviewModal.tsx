@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AiAction, AiPreviewState } from '../types';
 import { MarkdownRenderer } from './MarkdownRenderer';
-import { XIcon, ReplaceIcon, InsertAfterIcon, InsertIcon, RetakeIcon, CopyIcon, PenIcon, DocumentIcon } from './icons';
+import { XIcon, DocumentIcon } from './icons';
 
 interface DocumentOption {
   id: string;
@@ -62,7 +62,6 @@ export const AiPreviewModal: React.FC<AiPreviewModalProps> = ({
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [showDocumentSelector, setShowDocumentSelector] = useState(false);
 
-  // Cycle through loading messages
   useEffect(() => {
     if (isLoading) {
       const intervalId = setInterval(() => {
@@ -75,8 +74,7 @@ export const AiPreviewModal: React.FC<AiPreviewModalProps> = ({
       return () => clearInterval(intervalId);
     }
   }, [isLoading]);
-  
-  // Typewriter effect for the AI response
+
   useEffect(() => {
     if (!isLoading && content && isOpen) {
       setIsTyping(true);
@@ -91,14 +89,14 @@ export const AiPreviewModal: React.FC<AiPreviewModalProps> = ({
           clearInterval(typingInterval);
           setIsTyping(false);
         }
-      }, 1); // Lightning speed
+      }, 1);
       return () => clearInterval(typingInterval);
-    } else if (!isOpen) { // Reset on close
+    } else if (!isOpen) {
       setDisplayedContent('');
       setIsTyping(false);
     }
   }, [isLoading, content, isOpen]);
-  
+
   if (!isOpen) return null;
 
   const hasSelection = !!state.originalSelection;
@@ -109,8 +107,6 @@ export const AiPreviewModal: React.FC<AiPreviewModalProps> = ({
     setSelectedDocumentId(docId);
     setShowDocumentSelector(false);
     setIsMinimized(true);
-    // Just switch to that document, don't insert yet
-    // We'll wait for user to position cursor and click "Insert at Cursor"
     if (onSwitchDocument) {
       onSwitchDocument(docId);
     }
@@ -118,9 +114,7 @@ export const AiPreviewModal: React.FC<AiPreviewModalProps> = ({
 
   const handleInsertAtCursor = () => {
     if (selectedDocumentId && onInsertToDocument && content) {
-      // Now trigger the insertion with content
       onInsertToDocument(selectedDocumentId, content);
-      // Close the modal after insertion
       setTimeout(() => {
         onClose();
       }, 100);
@@ -131,18 +125,64 @@ export const AiPreviewModal: React.FC<AiPreviewModalProps> = ({
     ? [
         { label: 'Replace', action: onReplace },
         { label: 'After', action: onInsertAfter },
-        ...(availableDocuments.length > 0 && onInsertToDocument ? [{ label: 'Switch Doc', action: () => setShowDocumentSelector(true) }] : []),
+        ...(availableDocuments.length > 0 && onInsertToDocument
+          ? [{ label: 'Switch Doc', action: () => setShowDocumentSelector(true) }]
+          : []),
       ]
     : [
         { label: 'Insert', action: onInsert },
-        ...(availableDocuments.length > 0 && onInsertToDocument ? [{ label: 'Switch Doc', action: () => setShowDocumentSelector(true) }] : []),
+        ...(availableDocuments.length > 0 && onInsertToDocument
+          ? [{ label: 'Switch Doc', action: () => setShowDocumentSelector(true) }]
+          : []),
       ];
-  
+
   const secondaryActions = [
     { label: 'Retake', action: onRetake },
     { label: 'Copy', action: onCopy },
     { label: 'Prompt', action: onFollowUpPrompt },
   ];
+
+  const allActions = [
+    ...mainActions.map(action => ({ ...action, variant: 'primary' as const })),
+    ...secondaryActions.map(action => ({ ...action, variant: 'secondary' as const })),
+  ];
+
+  const getActionClasses = (label: string, variant: 'primary' | 'secondary') => {
+    const themes: Record<string, { primary: string; secondary: string }> = {
+      Replace: {
+        primary: 'border-transparent bg-gradient-to-r from-fuchsia-500 via-violet-500 to-purple-500 text-white shadow-[0_10px_24px_rgba(168,85,247,0.28)] hover:from-fuchsia-400 hover:via-violet-500 hover:to-purple-400',
+        secondary: 'border-fuchsia-400 text-fuchsia-500 bg-white hover:bg-fuchsia-50 dark:bg-transparent dark:text-fuchsia-300 dark:border-fuchsia-400/80 dark:hover:bg-fuchsia-500/10',
+      },
+      After: {
+        primary: 'border-transparent bg-gradient-to-r from-lime-400 via-lime-500 to-lime-600 text-white shadow-[0_10px_24px_rgba(132,204,22,0.28)] hover:from-lime-300 hover:via-lime-500 hover:to-lime-500',
+        secondary: 'border-lime-400 text-lime-600 bg-white hover:bg-lime-50 dark:bg-transparent dark:text-lime-300 dark:border-lime-400/80 dark:hover:bg-lime-500/10',
+      },
+      'Switch Doc': {
+        primary: 'border-transparent bg-gradient-to-r from-amber-400 via-yellow-400 to-orange-400 text-white shadow-[0_10px_24px_rgba(251,191,36,0.3)] hover:from-amber-300 hover:via-yellow-400 hover:to-orange-300',
+        secondary: 'border-amber-400 text-amber-600 bg-white hover:bg-amber-50 dark:bg-transparent dark:text-amber-300 dark:border-amber-400/80 dark:hover:bg-amber-500/10',
+      },
+      Insert: {
+        primary: 'border-transparent bg-gradient-to-r from-sky-400 via-cyan-400 to-blue-500 text-white shadow-[0_10px_24px_rgba(56,189,248,0.28)] hover:from-sky-300 hover:via-cyan-400 hover:to-blue-400',
+        secondary: 'border-sky-400 text-sky-600 bg-white hover:bg-sky-50 dark:bg-transparent dark:text-sky-300 dark:border-sky-400/80 dark:hover:bg-sky-500/10',
+      },
+      Retake: {
+        primary: 'border-transparent bg-gradient-to-r from-fuchsia-500 via-violet-500 to-purple-500 text-white shadow-[0_10px_24px_rgba(168,85,247,0.28)] hover:from-fuchsia-400 hover:via-violet-500 hover:to-purple-400',
+        secondary: 'border-fuchsia-400 text-fuchsia-500 bg-white hover:bg-fuchsia-50 dark:bg-transparent dark:text-fuchsia-300 dark:border-fuchsia-400/80 dark:hover:bg-fuchsia-500/10',
+      },
+      Copy: {
+        primary: 'border-transparent bg-gradient-to-r from-lime-400 via-lime-500 to-lime-600 text-white shadow-[0_10px_24px_rgba(132,204,22,0.28)] hover:from-lime-300 hover:via-lime-500 hover:to-lime-500',
+        secondary: 'border-lime-400 text-lime-600 bg-white hover:bg-lime-50 dark:bg-transparent dark:text-lime-300 dark:border-lime-400/80 dark:hover:bg-lime-500/10',
+      },
+      Prompt: {
+        primary: 'border-transparent bg-gradient-to-r from-sky-400 via-cyan-400 to-blue-500 text-white shadow-[0_10px_24px_rgba(56,189,248,0.28)] hover:from-sky-300 hover:via-cyan-400 hover:to-blue-400',
+        secondary: 'border-sky-400 text-sky-600 bg-white hover:bg-sky-50 dark:bg-transparent dark:text-sky-300 dark:border-sky-400/80 dark:hover:bg-sky-500/10',
+      },
+    };
+
+    const theme = themes[label] ?? themes.Prompt;
+    const surface = variant === 'primary' ? theme.primary : theme.secondary;
+    return `group relative overflow-hidden whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[13px] font-semibold tracking-[0.01em] transition-all duration-200 hover:-translate-y-[1px] active:translate-y-0 ${surface}`;
+  };
 
   const renderContent = () => {
     if (isLoading) {
@@ -158,23 +198,22 @@ export const AiPreviewModal: React.FC<AiPreviewModalProps> = ({
       return (
         <div className="p-6 flex flex-wrap gap-2">
           {content.split('\n').map((alt, index) => {
-              const cleanAlt = alt.replace(/^\s*(\*|-)\s/, '').trim();
-              if (!cleanAlt) return null;
-              return (
-                  <button
-                      key={index}
-                      onClick={() => onAlternativeClick(cleanAlt)}
-                      className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors text-sm"
-                  >
-                      {cleanAlt}
-                  </button>
-              );
+            const cleanAlt = alt.replace(/^\s*(\*|-)\s/, '').trim();
+            if (!cleanAlt) return null;
+            return (
+              <button
+                key={index}
+                onClick={() => onAlternativeClick(cleanAlt)}
+                className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors text-sm"
+              >
+                {cleanAlt}
+              </button>
+            );
           })}
         </div>
       );
     }
-    
-    // Single, clean preview panel
+
     return (
       <div className="p-6">
         {isTyping ? (
@@ -182,9 +221,9 @@ export const AiPreviewModal: React.FC<AiPreviewModalProps> = ({
             {displayedContent}
           </div>
         ) : (
-          <MarkdownRenderer 
-            content={content} 
-            className="prose prose-sm lg:prose-base dark:prose-invert max-w-none prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-headings:my-3 prose-li:my-1" 
+          <MarkdownRenderer
+            content={content}
+            className="prose prose-sm lg:prose-base dark:prose-invert max-w-none prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-headings:my-3 prose-li:my-1"
           />
         )}
       </div>
@@ -200,13 +239,13 @@ export const AiPreviewModal: React.FC<AiPreviewModalProps> = ({
               <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-200">AI Response</h2>
               {selectedDocumentId && (
                 <span className="text-xs text-gray-500 dark:text-gray-400">
-                  → {availableDocuments.find(d => d.id === selectedDocumentId)?.name || 'Document'}
+                  to {availableDocuments.find(d => d.id === selectedDocumentId)?.name || 'Document'}
                 </span>
               )}
             </div>
             <div className="flex items-center gap-1">
-              <button 
-                onClick={() => setIsMinimized(false)} 
+              <button
+                onClick={() => setIsMinimized(false)}
                 className="p-1 rounded text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                 title="Restore"
               >
@@ -221,14 +260,14 @@ export const AiPreviewModal: React.FC<AiPreviewModalProps> = ({
           </header>
           <div className="p-3">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              {selectedDocumentId 
-                ? `Click in the document where you want to insert the response, then click "Insert at Cursor" below.`
+              {selectedDocumentId
+                ? 'Click in the target document, then press Insert at Cursor.'
                 : 'Select a document to insert the response.'}
             </p>
             {selectedDocumentId && (
               <button
                 onClick={handleInsertAtCursor}
-                className="mt-3 w-full flex items-center justify-center px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm"
+                className="mt-3 w-full rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
               >
                 Insert at Cursor
               </button>
@@ -245,8 +284,8 @@ export const AiPreviewModal: React.FC<AiPreviewModalProps> = ({
         <header className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">AI Response</h2>
           <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setIsMinimized(true)} 
+            <button
+              onClick={() => setIsMinimized(true)}
               className="p-1 rounded-full text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
               title="Minimize"
             >
@@ -259,7 +298,7 @@ export const AiPreviewModal: React.FC<AiPreviewModalProps> = ({
             </button>
           </div>
         </header>
-        
+
         <div className="overflow-y-auto">
           {showDocumentSelector ? (
             <div className="p-6">
@@ -280,9 +319,9 @@ export const AiPreviewModal: React.FC<AiPreviewModalProps> = ({
               </div>
               <button
                 onClick={() => setShowDocumentSelector(false)}
-                className="mt-4 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+                className="mt-4 inline-flex items-center rounded-lg px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
               >
-                ← Back
+                Back
               </button>
             </div>
           ) : (
@@ -292,21 +331,18 @@ export const AiPreviewModal: React.FC<AiPreviewModalProps> = ({
 
         <footer className="p-4 border-t border-gray-200 dark:border-gray-700">
           {!isAlternativesMode && (
-            <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4">
-              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                {mainActions.map(btn => (
-                  <button key={btn.label} onClick={btn.action} disabled={buttonsDisabled} className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors text-xs sm:text-sm">
-                    {btn.label}
-                  </button>
-                ))}
-              </div>
-              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                {secondaryActions.map(btn => (
-                  <button key={btn.label} onClick={btn.action} disabled={buttonsDisabled} className="px-2 sm:px-3 py-1.5 sm:py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs sm:text-sm">
-                    {btn.label}
-                  </button>
-                ))}
-              </div>
+            <div className="flex flex-wrap gap-2">
+              {allActions.map(btn => (
+                <button
+                  key={btn.label}
+                  onClick={btn.action}
+                  disabled={buttonsDisabled}
+                  className={`${getActionClasses(btn.label, btn.variant)} ${buttonsDisabled ? 'opacity-50 cursor-not-allowed hover:translate-y-0' : ''}`}
+                >
+                  <span className="absolute inset-x-3 top-0 h-px bg-white/60"></span>
+                  <span className="relative">{btn.label}</span>
+                </button>
+              ))}
             </div>
           )}
         </footer>

@@ -7,7 +7,7 @@
  */
 
 import type { Chat, Part } from '@google/genai';
-import { AiProvider, GenericChatSession, TranscriptionOption, ChatMessage } from '../types';
+import { AiProvider, GenericChatSession, TranscriptionOption } from '../types';
 import * as openRouter from './openRouterService';
 import * as gemini from './geminiService';
 import * as nvidia from './nvidiaService';
@@ -21,6 +21,29 @@ export const getActiveProvider = (): AiProvider => {
 
 export const setActiveProvider = (provider: AiProvider): void => {
   localStorage.setItem('ai_provider', provider);
+};
+
+export const getConfiguredProviders = (): AiProvider[] => {
+  const providers: AiProvider[] = [];
+
+  const openRouterKey = localStorage.getItem('openrouter_api_key')?.trim();
+  const openRouterModel = localStorage.getItem('openrouter_model')?.trim();
+  if (openRouterKey && openRouterModel) {
+    providers.push('openrouter');
+  }
+
+  const geminiKey = gemini.getGeminiApiKey()?.trim();
+  if (geminiKey) {
+    providers.push('gemini');
+  }
+
+  const nvidiaKey = nvidia.getNvidiaApiKey()?.trim();
+  const nvidiaModel = nvidia.getNvidiaModel()?.trim();
+  if (nvidiaKey && nvidiaModel) {
+    providers.push('nvidia');
+  }
+
+  return providers;
 };
 
 // ─── Unified API surface ──────────────────────────────────────────────────────
@@ -39,15 +62,15 @@ export const generateText = async (
   return openRouter.generateText(prompt, images);
 };
 
-export const createChatSession = (history?: ChatMessage[]): GenericChatSession => {
+export const createChatSession = (): GenericChatSession => {
   const provider = getActiveProvider();
   if (provider === 'gemini') {
-    return new GeminiChatAdapter(history);
+    return new GeminiChatAdapter();
   }
   if (provider === 'nvidia') {
-    return nvidia.createChatSession(history);
+    return nvidia.createChatSession();
   }
-  return openRouter.createChatSession(history);
+  return openRouter.createChatSession();
 };
 
 export const transcribeFiles = async (
@@ -73,20 +96,10 @@ export const transcribeFiles = async (
  */
 class GeminiChatAdapter implements GenericChatSession {
   private session: Chat | null = null;
-  private history: any[] | undefined;
-
-  constructor(history?: ChatMessage[]) {
-    if (history && history.length > 0) {
-      this.history = history.map(msg => ({
-        role: msg.role === 'user' ? 'user' : 'model',
-        parts: [{ text: msg.text }]
-      }));
-    }
-  }
 
   private getSession(): Chat {
     if (!this.session) {
-      this.session = gemini.createGeminiChatSession(this.history);
+      this.session = gemini.createGeminiChatSession();
     }
     return this.session;
   }

@@ -22,6 +22,7 @@ interface NoteEditorProps {
   onOpenHelpMeThink: () => void;
   zoomLevel: number;
   onToggleFind: (visible: boolean) => void;
+  flatMode?: boolean;
   availableDocuments?: DocumentOption[];
   currentDocumentId?: string;
   onSwitchDocument?: (documentId: string) => void;
@@ -95,8 +96,7 @@ const ContextMenu: React.FC<{
   onClose: () => void;
   onMinimize?: () => void;
   showMinimize?: boolean;
-  onCopy?: () => void;
-}> = ({ state, onAction, onClose, onMinimize, showMinimize, onCopy }) => {
+}> = ({ state, onAction, onClose, onMinimize, showMinimize }) => {
   const [activeSubMenu, setActiveSubMenu] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: state.x, y: state.y });
@@ -121,7 +121,6 @@ const ContextMenu: React.FC<{
       { label: AiAction.HELP_ME_THINK, icon: <BrainIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.HELP_ME_THINK) },
     ],
     selection: [
-      ...(onCopy ? [{ label: 'Copy', icon: <CopyIcon className="h-5 w-5 mr-3" />, action: onCopy }] : []),
       {
         label: 'Answer Question(s)',
         icon: <QuestionIcon className="h-5 w-5 mr-3" />,
@@ -146,12 +145,13 @@ const ContextMenu: React.FC<{
         label: 'Explain',
         icon: <LightBulbIcon className="h-5 w-5 mr-3" />,
         subMenu: [
-          { label: AiAction.EXPLAIN_SIMPLY, icon: <PenIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.EXPLAIN_SIMPLY) },
-          { label: AiAction.EXPLAIN_ANALOGY, icon: <LightBulbIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.EXPLAIN_ANALOGY) },
-          { label: AiAction.EXPLAIN_STEP_BY_STEP, icon: <ListNumberedIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.EXPLAIN_STEP_BY_STEP) },
-          { label: AiAction.EXPLAIN_KEY_CONCEPTS, icon: <StarIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.EXPLAIN_KEY_CONCEPTS) },
+          { label: 'Simply', icon: <PenIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.EXPLAIN_SIMPLY) },
+          { label: 'With an Analogy', icon: <LightBulbIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.EXPLAIN_ANALOGY) },
+          { label: 'Step-by-Step', icon: <ListNumberedIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.EXPLAIN_STEP_BY_STEP) },
+          { label: 'Key Concepts', icon: <StarIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.EXPLAIN_KEY_CONCEPTS) },
         ]
       },
+      { label: AiAction.COPY_SELECTION, icon: <CopyIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.COPY_SELECTION) },
       {
         label: 'Style Changes',
         icon: <StyleIcon className="h-5 w-5 mr-3" />,
@@ -273,7 +273,7 @@ const ContextMenu: React.FC<{
 };
 
 
-export const NoteEditor = forwardRef<NoteEditorHandles, NoteEditorProps>(({ content, setContent, scrollContainerRef, onOpenHelpMeThink, zoomLevel, onToggleFind, availableDocuments = [], currentDocumentId, onSwitchDocument, onInsertToDocument }, ref) => {
+export const NoteEditor = forwardRef<NoteEditorHandles, NoteEditorProps>(({ content, setContent, scrollContainerRef, onOpenHelpMeThink, zoomLevel, onToggleFind, flatMode, availableDocuments = [], currentDocumentId, onSwitchDocument, onInsertToDocument }, ref) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const selectionRef = useRef<Range | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({ visible: false, x: 0, y: 0, type: 'general' });
@@ -320,6 +320,24 @@ export const NoteEditor = forwardRef<NoteEditorHandles, NoteEditorProps>(({ cont
   }, []);
   
   const handleAiAction = useCallback(async (action: AiAction, customPrompt?: string, images?: { mimeType: string; data: string }[]) => {
+    if (action === AiAction.COPY_SELECTION) {
+      const selectedText = selectionRef.current ? selectionRef.current.toString() : '';
+      if (!selectedText) return;
+
+      try {
+        await navigator.clipboard.writeText(selectedText);
+      } catch {
+        const activeSelection = window.getSelection();
+        const preservedRange = selectionRef.current?.cloneRange() ?? null;
+        if (preservedRange && activeSelection) {
+          activeSelection.removeAllRanges();
+          activeSelection.addRange(preservedRange);
+        }
+        document.execCommand('copy');
+      }
+      return;
+    }
+
     if (action === AiAction.HELP_ME_THINK) {
         onOpenHelpMeThink();
         return;
@@ -1433,7 +1451,7 @@ ${selectedText}
 
   return (
     <>
-       <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl border-2 border-gray-200/80 dark:border-gray-700/80" style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top left' }}>
+       <div className={`relative ${flatMode ? 'h-full' : 'bg-white dark:bg-gray-800 rounded-2xl shadow-xl border-2 border-gray-200/80 dark:border-gray-700/80'}`} style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top left' }}>
         {/* Placeholder Text - Shows when editor is empty */}
         {(!content || content.trim() === '' || content === '<p><br></p>' || content === '<p></p>') && (
           <div 
@@ -1450,23 +1468,23 @@ ${selectedText}
           </div>
         )}
         
-        <div
-          data-note-editor-root="true"
-          ref={editorRef}
-          contentEditable
-          onInput={handleInput}
-          onClick={handleEditorClick}
-          onContextMenu={handleContextMenu}
-          onPaste={handlePaste}
-            className="w-full leading-relaxed focus:outline-none p-8 sm:p-12 md:p-16 relative z-10"
-          style={{ 
-            minHeight: '80vh',
-            wordBreak: 'break-word',
-            overflowWrap: 'break-word',
+          <div
+            data-note-editor-root="true"
+            ref={editorRef}
+            contentEditable
+            onInput={handleInput}
+            onClick={handleEditorClick}
+            onContextMenu={handleContextMenu}
+            onPaste={handlePaste}
+            className={`w-full leading-relaxed focus:outline-none relative z-10 ${flatMode ? 'p-2 sm:p-6 md:p-8' : 'p-8 sm:p-12 md:p-16'}`}
+            style={{ 
+              minHeight: '80vh',
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word',
               fontSize: '11pt',
               fontFamily: 'Calibri, Arial, sans-serif',
-          }}
-        />
+            }}
+          />
         {selectedElement?.tagName === 'IMG' && (
             <ImageControls 
                 imageEl={selectedElement as HTMLImageElement}
@@ -1508,14 +1526,6 @@ ${selectedText}
         onClose={closeContextMenu} 
         onMinimize={menuOpenedFromButton ? handleMinimizeMenu : undefined}
         showMinimize={menuOpenedFromButton && contextMenu.type === 'selection'}
-        onCopy={() => {
-          const selectedText = selectionRef.current 
-            ? selectionRef.current.toString() 
-            : window.getSelection()?.toString() || '';
-          if (selectedText) {
-            navigator.clipboard.writeText(selectedText);
-          }
-        }}
       />
       <PromptModal
         isOpen={isPromptModalOpen}

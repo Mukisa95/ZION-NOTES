@@ -12,9 +12,9 @@ export default defineConfig(({ mode }) => {
           '/api/nvidia': {
             target: 'https://integrate.api.nvidia.com',
             changeOrigin: true,
-            rewrite: (path) => path.replace(/^\/api\/nvidia/, ''),
-          }
-        }
+            rewrite: (path) => path.replace(/^\/api\/nvidia/, '/v1'),
+          },
+        },
       },
       plugins: [react()],
       define: {

@@ -6,7 +6,7 @@ import { TranscriptionError, TranscriptionOption } from "../types";
 const DEFAULT_API_KEY = 'AIzaSyDVa1NyXAB1xAQTwSgGt8q5HP1kmCINuzE';
 
 // Get API key from localStorage, environment variable, or use default
-const getApiKey = (): string => {
+export const getGeminiApiKey = (): string => {
   const storedKey = localStorage.getItem('gemini_api_key');
   if (storedKey) {
     return storedKey;
@@ -22,7 +22,7 @@ const getApiKey = (): string => {
 };
 
 const getAI = () => {
-  const apiKey = getApiKey();
+  const apiKey = getGeminiApiKey();
   return new GoogleGenAI({ apiKey });
 };
 
@@ -58,11 +58,10 @@ export const generateText = async (prompt: string, images?: { mimeType: string; 
   }
 };
 
-export const createGeminiChatSession = (history?: any[]): Chat => {
+export const createGeminiChatSession = (): Chat => {
   const ai = getAI();
   return ai.chats.create({
     model: TEXT_MODEL,
-    history: history,
     config: {
       systemInstruction:
         'You are a helpful assistant for a note-taking app. Be concise and clear in your responses. Always use rich Markdown formatting (like **bold**, *italics*, and bulleted or numbered lists) to enhance readability and structure. Use indentation for nested lists to create clear hierarchies.',

@@ -19,10 +19,12 @@ export interface ContextMenuState {
 }
 
 export interface ChatMessage {
+  id: string;
   role: 'user' | 'model';
   text: string;
   imagePreviews?: string[]; // Data URLs for displaying the user's uploaded images
-  images?: { mimeType: string; data: string }[]; // Raw base64 data for sending to the AI on retry/edit
+  images?: { mimeType: string; data: string; preview: string }[];
+  relatedUserMessageId?: string;
 }
 
 export type FormatType = 
@@ -46,10 +48,11 @@ export enum AiAction {
   SUMMARIZE_SENTENCES = 'Summarize in a Few Sentences',
   SUMMARIZE_ELI5 = 'Summarize as an ELI5',
   
-  EXPLAIN_SIMPLY = 'Simply',
-  EXPLAIN_ANALOGY = 'With an Analogy',
-  EXPLAIN_STEP_BY_STEP = 'Step-by-Step',
-  EXPLAIN_KEY_CONCEPTS = 'Key Concepts',
+  EXPLAIN_SIMPLY = 'Explain Simply',
+  EXPLAIN_ANALOGY = 'Explain with an Analogy',
+  EXPLAIN_STEP_BY_STEP = 'Explain Step-by-Step',
+  EXPLAIN_KEY_CONCEPTS = 'Explain Key Concepts',
+  COPY_SELECTION = 'Copy',
 
   EXPAND = 'Expand',
   STYLE_ACADEMIC = 'Academic',
@@ -113,4 +116,68 @@ export interface TranscriptionError {
   id: string;
   original: string;
   suggestion: string;
+}
+
+// ─── Research Component Types ──────────────────────────────────────────────────
+
+export interface ResearchProjectMeta {
+  projectName: string;
+  author: string;
+}
+
+export type ResourceCategory = 'scheme' | 'notes' | 'images';
+
+export interface ResearchResource {
+  id: string;
+  category: ResourceCategory;
+  name: string;
+  content?: string;       // text content for notes/schemes
+  fileDataUrl?: string;   // compressed base64 data URL for images
+  mimeType?: string;
+  addedAt: number;
+}
+
+export type AiApproach =
+  | 'resource-grounded'
+  | 'resource-knowledge'
+  | 'resource-knowledge-internet';
+
+export type NoteType = 'deep' | 'context' | 'exemplary';
+
+export interface NoteGenerationConfig {
+  approach: AiApproach;
+  ageGroup: string;
+  noteType: NoteType;
+  selectedResourceIds?: string[];
+  topic?: string;
+  customInstructions?: string;
+}
+
+export type TruthSource = 'topic' | 'resource';
+export type QuestionType = 'knowledge' | 'comprehension' | 'mixed';
+export type QaMode = 'test' | 'quiz';
+
+export interface QaConfig {
+  mode: QaMode;
+  truthSource: TruthSource;
+  topic?: string;
+  selectedResourceIds?: string[];
+  questionType: QuestionType;
+  questionCount?: number;
+  playerCount?: number;
+  playerNames?: string[];
+  timerEnabled?: boolean;
+  includeAnswers?: boolean;
+  answerPlacement?: 'along' | 'under';
+  questionsPerPlayer?: number;
+}
+
+export interface ResearchProject {
+  id: string;
+  meta: ResearchProjectMeta;
+  resources: ResearchResource[];
+  documentContent: string;
+  userId: string;
+  createdAt: number;
+  updatedAt: number;
 }

@@ -1,75 +1,69 @@
 import mammoth from 'mammoth';
-import { ChatMessage, GenericChatSession, TranscriptionOption } from '../types';
+import { GenericChatSession, TranscriptionOption } from '../types';
 
-// ─── Config helpers ───────────────────────────────────────────────────────────
+const NVIDIA_BASE = '/api/nvidia';
 
-const NVIDIA_BASE = '/api/nvidia/v1';
-const DEFAULT_NVIDIA_KEY = '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';
-const DEFAULT_NVIDIA_MODEL = 'nvidia/nemotron-3-super-120b-a12b:free';
+export const DEFAULT_NVIDIA_API_KEY =
+  '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';
+export const DEFAULT_NVIDIA_MODEL = 'nvidia/nemotron-3-super-120b-a12b';
+
+const normalizeNvidiaModel = (model: string): string =>
+  model.trim().replace(/:free$/i, '');
 
 export const getNvidiaApiKey = (): string =>
-  localStorage.getItem('nvidia_api_key') || DEFAULT_NVIDIA_KEY;
+  localStorage.getItem('nvidia_api_key') ?? DEFAULT_NVIDIA_API_KEY;
 
-export const getNvidiaModel = (): string => {
-  const model = localStorage.getItem('nvidia_model') || DEFAULT_NVIDIA_MODEL;
-  return model.endsWith(':free') ? model.slice(0, -5) : model;
-};
+export const getNvidiaModel = (): string =>
+  normalizeNvidiaModel(localStorage.getItem('nvidia_model') ?? DEFAULT_NVIDIA_MODEL);
 
-const buildHeaders = () => ({
+const buildHeaders = (stream = false) => ({
   Authorization: `Bearer ${getNvidiaApiKey()}`,
   'Content-Type': 'application/json',
+  Accept: stream ? 'text/event-stream' : 'application/json',
 });
-
-// ─── Retry helper ─────────────────────────────────────────────────────────────
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-/**
- * Wraps an async function with exponential backoff retries on 429 errors.
- * Retries up to `maxAttempts` times, doubling the delay each time.
- */
 async function withRetry<T>(
   fn: () => Promise<T>,
   maxAttempts = 3,
   baseDelayMs = 2000
 ): Promise<T> {
   let lastError: unknown;
+
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       return await fn();
     } catch (err) {
       lastError = err;
-      const msg = err instanceof Error ? err.message : '';
-      if (msg.includes('429')) {
+      const message = err instanceof Error ? err.message : '';
+      if (message.includes('429')) {
         const delay = baseDelayMs * Math.pow(2, attempt);
-        console.warn(`Nvidia API 429 — retrying in ${delay}ms (attempt ${attempt + 1}/${maxAttempts})`);
         await sleep(delay);
         continue;
       }
       throw err;
     }
   }
+
   throw lastError;
 }
-
-// ─── User-friendly error parser ───────────────────────────────────────────────
 
 function friendlyError(error: unknown): string {
   if (error instanceof Error) {
     if (error.message.includes('401')) {
-      return '⚠️ Invalid Nvidia API key. Please update it in Settings.';
-    }
-    if (error.message.includes('429')) {
-      return '⚠️ This model is rate-limited. Please wait a moment and try again, or switch to a different model in Settings.';
+      return 'Invalid Nvidia API key. Please update it in Settings.';
     }
     if (error.message.includes('404')) {
-      return '⚠️ Model not found. Please go to Settings and choose a different model or enter a valid custom model ID.';
+      return 'Nvidia model not found. Please check the model in Settings.';
+    }
+    if (error.message.includes('429')) {
+      return 'Nvidia API is rate-limiting this request. Please try again in a moment.';
     }
   }
-  return 'Error: Could not reach Nvidia API. Please check your API key and model in Settings.';
-}
 
-// ─── Image helpers ─────────────────────────────────────────────────────────────
+  return 'Error: Could not reach the Nvidia API. Please check the provider settings.';
+}
 
 const fileToBase64 = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -79,31 +73,25 @@ const fileToBase64 = (file: File): Promise<string> =>
     reader.onerror = reject;
   });
 
-/**
- * Build an OpenAI-compatible "content" structure.
- * Standard text completions support a simple string content. If we have images,
- * we use the content array format.
- */
 const buildUserContent = async (
   text: string,
   images?: { mimeType: string; data: string }[]
-): Promise<string | Array<{ type: string; text?: string; image_url?: { url: string } }>> => {
-  if (!images || images.length === 0) {
-    return text;
-  }
+): Promise<Array<{ type: string; text?: string; image_url?: { url: string } }>> => {
   const parts: Array<{ type: string; text?: string; image_url?: { url: string } }> = [
     { type: 'text', text },
   ];
-  for (const img of images) {
-    parts.push({
-      type: 'image_url',
-      image_url: { url: `data:${img.mimeType};base64,${img.data}` },
-    });
+
+  if (images && images.length > 0) {
+    for (const img of images) {
+      parts.push({
+        type: 'image_url',
+        image_url: { url: `data:${img.mimeType};base64,${img.data}` },
+      });
+    }
   }
+
   return parts;
 };
-
-// ─── Text Generation ──────────────────────────────────────────────────────────
 
 export const generateText = async (
   prompt: string,
@@ -112,7 +100,7 @@ export const generateText = async (
   try {
     const content = await buildUserContent(prompt, images);
 
-    const result = await withRetry(async () => {
+    return await withRetry(async () => {
       const res = await fetch(`${NVIDIA_BASE}/chat/completions`, {
         method: 'POST',
         headers: buildHeaders(),
@@ -124,21 +112,17 @@ export const generateText = async (
 
       if (!res.ok) {
         const err = await res.text();
-        throw new Error(`Nvidia API error ${res.status}: ${err}`);
+        throw new Error(`Nvidia error ${res.status}: ${err}`);
       }
 
       const json = await res.json();
       return json.choices?.[0]?.message?.content ?? '';
     });
-
-    return result;
   } catch (error) {
     console.error('Nvidia generateText error:', error);
     return friendlyError(error);
   }
 };
-
-// ─── Streaming Chat Session ───────────────────────────────────────────────────
 
 const SYSTEM_PROMPT =
   'You are a helpful assistant for a note-taking app. Be concise and clear in your responses. Always use rich Markdown formatting (like **bold**, *italics*, and bulleted or numbered lists) to enhance readability and structure. Use indentation for nested lists to create clear hierarchies.';
@@ -149,24 +133,7 @@ type ConversationMessage = {
 };
 
 class NvidiaChatSession implements GenericChatSession {
-  private history: ConversationMessage[];
-
-  constructor(history?: ChatMessage[]) {
-    if (history && history.length > 0) {
-      const mapped = history.map(msg => ({
-        role: (msg.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
-        content: msg.text
-      }));
-      this.history = [
-        { role: 'system', content: SYSTEM_PROMPT },
-        ...mapped
-      ];
-    } else {
-      this.history = [
-        { role: 'system', content: SYSTEM_PROMPT },
-      ];
-    }
-  }
+  private history: ConversationMessage[] = [{ role: 'system', content: SYSTEM_PROMPT }];
 
   async *sendMessageStream(params: {
     message: string;
@@ -177,35 +144,37 @@ class NvidiaChatSession implements GenericChatSession {
 
     let res: Response | null = null;
     let lastErr: unknown;
+
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const r = await fetch(`${NVIDIA_BASE}/chat/completions`, {
+        const response = await fetch(`${NVIDIA_BASE}/chat/completions`, {
           method: 'POST',
-          headers: buildHeaders(),
+          headers: buildHeaders(true),
           body: JSON.stringify({
             model: getNvidiaModel(),
             messages: this.history,
             stream: true,
           }),
         });
-        if (!r.ok) {
-          const err = await r.text();
-          const error = new Error(`Nvidia stream error ${r.status}: ${err}`);
-          if (r.status === 429) {
+
+        if (!response.ok) {
+          const err = await response.text();
+          const error = new Error(`Nvidia stream error ${response.status}: ${err}`);
+          if (response.status === 429) {
             lastErr = error;
             const delay = 2000 * Math.pow(2, attempt);
-            console.warn(`Nvidia chat 429 — retrying in ${delay}ms`);
             await sleep(delay);
             continue;
           }
           throw error;
         }
-        res = r;
+
+        res = response;
         break;
       } catch (err) {
         lastErr = err;
-        const msg = err instanceof Error ? err.message : '';
-        if (msg.includes('429')) {
+        const message = err instanceof Error ? err.message : '';
+        if (message.includes('429')) {
           const delay = 2000 * Math.pow(2, attempt);
           await sleep(delay);
           continue;
@@ -215,7 +184,7 @@ class NvidiaChatSession implements GenericChatSession {
     }
 
     if (!res || !res.body) {
-      throw lastErr ?? new Error('Nvidia: failed to connect after retries.');
+      throw lastErr ?? new Error('Nvidia API: failed to connect after retries.');
     }
 
     const reader = res.body.getReader();
@@ -245,7 +214,7 @@ class NvidiaChatSession implements GenericChatSession {
               yield delta;
             }
           } catch {
-            // Ignore JSON parse errors for partial chunks
+            // Ignore partial chunks.
           }
         }
       }
@@ -257,10 +226,7 @@ class NvidiaChatSession implements GenericChatSession {
   }
 }
 
-export const createChatSession = (history?: ChatMessage[]): GenericChatSession =>
-  new NvidiaChatSession(history);
-
-// ─── Transcription (Vision / Text) ───────────────────────────────────────────
+export const createChatSession = (): GenericChatSession => new NvidiaChatSession();
 
 const fileToGenerativePart = async (
   file: File
@@ -286,7 +252,7 @@ const getTranscriptionPrompt = (option: TranscriptionOption): string => {
 - "html": clean, semantic HTML representing the document content
 - "errors": an array describing any spelling/grammar issues (objects with "original" and "suggestion")
 
-Always return VALID JSON only—no markdown fences or extra commentary.`;
+Always return VALID JSON only-no markdown fences or extra commentary.`;
 
   switch (option) {
     case 'original':
@@ -321,13 +287,9 @@ export const transcribeFiles = async (
 ): Promise<{ html: string; errors: { original: string; suggestion: string }[] }> => {
   const prompt = getTranscriptionPrompt(option);
   const fileParts = await Promise.all(files.map(fileToGenerativePart));
+  const content = [{ type: 'text', text: prompt }, ...fileParts];
 
-  const content = [
-    { type: 'text', text: prompt },
-    ...fileParts,
-  ];
-
-  const result = await withRetry(async () => {
+  return withRetry(async () => {
     const res = await fetch(`${NVIDIA_BASE}/chat/completions`, {
       method: 'POST',
       headers: buildHeaders(),
@@ -350,6 +312,4 @@ export const transcribeFiles = async (
     }
     return parseJsonResponse(text);
   });
-
-  return result;
 };
