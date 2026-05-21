@@ -5,7 +5,7 @@ import { PromptModal } from './PromptModal';
 import { AiPreviewModal } from './AiPreviewModal';
 import { markdownToHtml, markdownToPlainText } from '../utils/markdown';
 import { parse as parseInline } from '../utils/markdownParser';
-import { SummarizeIcon, ExpandIcon, StyleIcon, ContinueIcon, SparklesIcon, MessageIcon, PenIcon, QuestionIcon, ChevronRightIcon, CheckIcon, ListChecksIcon, LightBulbIcon, StarIcon, AcademicIcon, FormalIcon, CasualIcon, ToneIcon, ConfidentIcon, FriendlyIcon, ProfessionalIcon, ListNumberedIcon, AlternativesIcon, ListIcon, BrainIcon } from './icons';
+import { SummarizeIcon, ExpandIcon, StyleIcon, ContinueIcon, SparklesIcon, MessageIcon, PenIcon, QuestionIcon, ChevronRightIcon, CheckIcon, ListChecksIcon, LightBulbIcon, StarIcon, AcademicIcon, FormalIcon, CasualIcon, ToneIcon, ConfidentIcon, FriendlyIcon, ProfessionalIcon, ListNumberedIcon, AlternativesIcon, ListIcon, BrainIcon, CopyIcon } from './icons';
 import { ImageControls } from './ImageControls';
 import { TableControls } from './TableControls';
 import { CropModal } from './CropModal';
@@ -95,7 +95,8 @@ const ContextMenu: React.FC<{
   onClose: () => void;
   onMinimize?: () => void;
   showMinimize?: boolean;
-}> = ({ state, onAction, onClose, onMinimize, showMinimize }) => {
+  onCopy?: () => void;
+}> = ({ state, onAction, onClose, onMinimize, showMinimize, onCopy }) => {
   const [activeSubMenu, setActiveSubMenu] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: state.x, y: state.y });
@@ -120,6 +121,7 @@ const ContextMenu: React.FC<{
       { label: AiAction.HELP_ME_THINK, icon: <BrainIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.HELP_ME_THINK) },
     ],
     selection: [
+      ...(onCopy ? [{ label: 'Copy', icon: <CopyIcon className="h-5 w-5 mr-3" />, action: onCopy }] : []),
       {
         label: 'Answer Question(s)',
         icon: <QuestionIcon className="h-5 w-5 mr-3" />,
@@ -1506,6 +1508,14 @@ ${selectedText}
         onClose={closeContextMenu} 
         onMinimize={menuOpenedFromButton ? handleMinimizeMenu : undefined}
         showMinimize={menuOpenedFromButton && contextMenu.type === 'selection'}
+        onCopy={() => {
+          const selectedText = selectionRef.current 
+            ? selectionRef.current.toString() 
+            : window.getSelection()?.toString() || '';
+          if (selectedText) {
+            navigator.clipboard.writeText(selectedText);
+          }
+        }}
       />
       <PromptModal
         isOpen={isPromptModalOpen}

@@ -1,7 +1,7 @@
 // FIX: The Range type is a global DOM type and should not be imported from 'react'. It is available globally in browser environments.
 
 // ─── AI Provider ───────────────────────────────────────────────────────────────
-export type AiProvider = 'openrouter' | 'gemini';
+export type AiProvider = 'openrouter' | 'gemini' | 'nvidia';
 
 /** Provider-agnostic streaming chat session returned by aiService.createChatSession() */
 export interface GenericChatSession {
@@ -22,6 +22,7 @@ export interface ChatMessage {
   role: 'user' | 'model';
   text: string;
   imagePreviews?: string[]; // Data URLs for displaying the user's uploaded images
+  images?: { mimeType: string; data: string }[]; // Raw base64 data for sending to the AI on retry/edit
 }
 
 export type FormatType = 
@@ -45,10 +46,10 @@ export enum AiAction {
   SUMMARIZE_SENTENCES = 'Summarize in a Few Sentences',
   SUMMARIZE_ELI5 = 'Summarize as an ELI5',
   
-  EXPLAIN_SIMPLY = 'Explain Simply',
-  EXPLAIN_ANALOGY = 'Explain with an Analogy',
-  EXPLAIN_STEP_BY_STEP = 'Explain Step-by-Step',
-  EXPLAIN_KEY_CONCEPTS = 'Explain Key Concepts',
+  EXPLAIN_SIMPLY = 'Simply',
+  EXPLAIN_ANALOGY = 'With an Analogy',
+  EXPLAIN_STEP_BY_STEP = 'Step-by-Step',
+  EXPLAIN_KEY_CONCEPTS = 'Key Concepts',
 
   EXPAND = 'Expand',
   STYLE_ACADEMIC = 'Academic',

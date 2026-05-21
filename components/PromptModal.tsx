@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { XIcon, SparklesIcon, ImageIcon } from './icons';
+import { XIcon, SparklesIcon, ImageIcon, UserIcon } from './icons';
+import { useAuth } from '../contexts/AuthContext';
 
 interface PromptModalProps {
   isOpen: boolean;
@@ -25,6 +26,7 @@ const dataUrlToImageObject = (dataUrl: string): { mimeType: string; data: string
 }
 
 export const PromptModal: React.FC<PromptModalProps> = ({ isOpen, onClose, onSubmit, contextText, placeholder, initialImageSrc }) => {
+  const { user } = useAuth();
   const [prompt, setPrompt] = useState('');
   const [images, setImages] = useState<{ file?: File; dataUrl: string }[]>([]);
 
@@ -135,13 +137,32 @@ export const PromptModal: React.FC<PromptModalProps> = ({ isOpen, onClose, onSub
                 </div>
             )}
             
-            <textarea
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder={placeholder || (images.length > 0 ? 'Ask something about the image(s)...' : 'e.g., Explain this like I\'m five...')}
-              className="w-full h-24 sm:h-24 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 dark:text-gray-200 text-base"
-              autoFocus
-            />
+            <div className="flex gap-3 items-start">
+              {user && (
+                <div className="flex-shrink-0 w-10 h-10 rounded-full overflow-hidden shadow-sm flex items-center justify-center mt-1 border border-gray-200 dark:border-gray-700">
+                  {user.photoURL ? (
+                    <img 
+                      src={user.photoURL} 
+                      alt={user.displayName || 'User'} 
+                      className="w-full h-full object-cover" 
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                      <UserIcon className="w-5 h-5 text-white" />
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="flex-1">
+                <textarea
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  placeholder={placeholder || (images.length > 0 ? 'Ask something about the image(s)...' : 'e.g., Explain this like I\'m five...')}
+                  className="w-full h-24 sm:h-24 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 dark:text-gray-200 text-base"
+                  autoFocus
+                />
+              </div>
+            </div>
             <p className="text-xs text-gray-500 mt-2">
               Use <code className="bg-gray-200 dark:bg-gray-700 px-1 rounded">{'{text}'}</code> to reference context text.
             </p>

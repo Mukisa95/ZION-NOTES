@@ -1,30 +1,23 @@
-/**
- * openRouterService.ts
- * OpenRouter API client — implements the same interface shape as geminiService
- * so aiService.ts can delegate transparently.
- *
- * OpenRouter exposes an OpenAI-compatible endpoint:
- *   POST https://openrouter.ai/api/v1/chat/completions
- */
-
 import mammoth from 'mammoth';
 import { ChatMessage, GenericChatSession, TranscriptionOption } from '../types';
 
 // ─── Config helpers ───────────────────────────────────────────────────────────
 
-const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
+const NVIDIA_BASE = '/api/nvidia/v1';
+const DEFAULT_NVIDIA_KEY = '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';
+const DEFAULT_NVIDIA_MODEL = 'nvidia/nemotron-3-super-120b-a12b:free';
 
-export const getOpenRouterApiKey = (): string =>
-  localStorage.getItem('openrouter_api_key') ?? '';
+export const getNvidiaApiKey = (): string =>
+  localStorage.getItem('nvidia_api_key') || DEFAULT_NVIDIA_KEY;
 
-export const getOpenRouterModel = (): string =>
-  localStorage.getItem('openrouter_model') ?? 'qwen/qwen3.6-plus:free';
+export const getNvidiaModel = (): string => {
+  const model = localStorage.getItem('nvidia_model') || DEFAULT_NVIDIA_MODEL;
+  return model.endsWith(':free') ? model.slice(0, -5) : model;
+};
 
 const buildHeaders = () => ({
-  Authorization: `Bearer ${getOpenRouterApiKey()}`,
+  Authorization: `Bearer ${getNvidiaApiKey()}`,
   'Content-Type': 'application/json',
-  'HTTP-Referer': window.location.origin,
-  'X-Title': 'Zion Notes',
 });
 
 // ─── Retry helper ─────────────────────────────────────────────────────────────
@@ -47,14 +40,13 @@ async function withRetry<T>(
     } catch (err) {
       lastError = err;
       const msg = err instanceof Error ? err.message : '';
-      // Only retry on rate-limit errors; bail immediately for others
       if (msg.includes('429')) {
         const delay = baseDelayMs * Math.pow(2, attempt);
-        console.warn(`OpenRouter 429 — retrying in ${delay}ms (attempt ${attempt + 1}/${maxAttempts})`);
+        console.warn(`Nvidia API 429 — retrying in ${delay}ms (attempt ${attempt + 1}/${maxAttempts})`);
         await sleep(delay);
         continue;
       }
-      throw err; // Non-429 error — propagate immediately
+      throw err;
     }
   }
   throw lastError;
@@ -65,7 +57,7 @@ async function withRetry<T>(
 function friendlyError(error: unknown): string {
   if (error instanceof Error) {
     if (error.message.includes('401')) {
-      return '⚠️ Invalid OpenRouter API key. Please update it in Settings.';
+      return '⚠️ Invalid Nvidia API key. Please update it in Settings.';
     }
     if (error.message.includes('429')) {
       return '⚠️ This model is rate-limited. Please wait a moment and try again, or switch to a different model in Settings.';
@@ -73,16 +65,12 @@ function friendlyError(error: unknown): string {
     if (error.message.includes('404')) {
       return '⚠️ Model not found. Please go to Settings and choose a different model or enter a valid custom model ID.';
     }
-    if (error.message.includes('402')) {
-      return '⚠️ Insufficient OpenRouter credits for this model. Try a free model or add credits at openrouter.ai.';
-    }
   }
-  return 'Error: Could not reach OpenRouter. Please check your API key and model in Settings.';
+  return 'Error: Could not reach Nvidia API. Please check your API key and model in Settings.';
 }
 
 // ─── Image helpers ─────────────────────────────────────────────────────────────
 
-/** Converts a File to a base-64 string (no data-URL prefix) */
 const fileToBase64 = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -92,23 +80,25 @@ const fileToBase64 = (file: File): Promise<string> =>
   });
 
 /**
- * Build an OpenAI-compatible "content" array for a user message.
- * Text is always included; images are added as image_url parts using data URLs.
+ * Build an OpenAI-compatible "content" structure.
+ * Standard text completions support a simple string content. If we have images,
+ * we use the content array format.
  */
 const buildUserContent = async (
   text: string,
   images?: { mimeType: string; data: string }[]
-): Promise<Array<{ type: string; text?: string; image_url?: { url: string } }>> => {
+): Promise<string | Array<{ type: string; text?: string; image_url?: { url: string } }>> => {
+  if (!images || images.length === 0) {
+    return text;
+  }
   const parts: Array<{ type: string; text?: string; image_url?: { url: string } }> = [
     { type: 'text', text },
   ];
-  if (images && images.length > 0) {
-    for (const img of images) {
-      parts.push({
-        type: 'image_url',
-        image_url: { url: `data:${img.mimeType};base64,${img.data}` },
-      });
-    }
+  for (const img of images) {
+    parts.push({
+      type: 'image_url',
+      image_url: { url: `data:${img.mimeType};base64,${img.data}` },
+    });
   }
   return parts;
 };
@@ -123,18 +113,18 @@ export const generateText = async (
     const content = await buildUserContent(prompt, images);
 
     const result = await withRetry(async () => {
-      const res = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
+      const res = await fetch(`${NVIDIA_BASE}/chat/completions`, {
         method: 'POST',
         headers: buildHeaders(),
         body: JSON.stringify({
-          model: getOpenRouterModel(),
+          model: getNvidiaModel(),
           messages: [{ role: 'user', content }],
         }),
       });
 
       if (!res.ok) {
         const err = await res.text();
-        throw new Error(`OpenRouter error ${res.status}: ${err}`);
+        throw new Error(`Nvidia API error ${res.status}: ${err}`);
       }
 
       const json = await res.json();
@@ -143,7 +133,7 @@ export const generateText = async (
 
     return result;
   } catch (error) {
-    console.error('OpenRouter generateText error:', error);
+    console.error('Nvidia generateText error:', error);
     return friendlyError(error);
   }
 };
@@ -158,7 +148,7 @@ type ConversationMessage = {
   content: string | Array<{ type: string; text?: string; image_url?: { url: string } }>;
 };
 
-class OpenRouterChatSession implements GenericChatSession {
+class NvidiaChatSession implements GenericChatSession {
   private history: ConversationMessage[];
 
   constructor(history?: ChatMessage[]) {
@@ -185,27 +175,26 @@ class OpenRouterChatSession implements GenericChatSession {
     const userContent = await buildUserContent(params.message, params.images);
     this.history.push({ role: 'user', content: userContent });
 
-    // Retry up to 3 times on 429
     let res: Response | null = null;
     let lastErr: unknown;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const r = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
+        const r = await fetch(`${NVIDIA_BASE}/chat/completions`, {
           method: 'POST',
           headers: buildHeaders(),
           body: JSON.stringify({
-            model: getOpenRouterModel(),
+            model: getNvidiaModel(),
             messages: this.history,
             stream: true,
           }),
         });
         if (!r.ok) {
           const err = await r.text();
-          const error = new Error(`OpenRouter stream error ${r.status}: ${err}`);
+          const error = new Error(`Nvidia stream error ${r.status}: ${err}`);
           if (r.status === 429) {
             lastErr = error;
             const delay = 2000 * Math.pow(2, attempt);
-            console.warn(`OpenRouter chat 429 — retrying in ${delay}ms`);
+            console.warn(`Nvidia chat 429 — retrying in ${delay}ms`);
             await sleep(delay);
             continue;
           }
@@ -226,7 +215,7 @@ class OpenRouterChatSession implements GenericChatSession {
     }
 
     if (!res || !res.body) {
-      throw lastErr ?? new Error('OpenRouter: failed to connect after retries.');
+      throw lastErr ?? new Error('Nvidia: failed to connect after retries.');
     }
 
     const reader = res.body.getReader();
@@ -264,15 +253,14 @@ class OpenRouterChatSession implements GenericChatSession {
       reader.releaseLock();
     }
 
-    // Store assistant reply in history for multi-turn context
     this.history.push({ role: 'assistant', content: fullText });
   }
 }
 
 export const createChatSession = (history?: ChatMessage[]): GenericChatSession =>
-  new OpenRouterChatSession(history);
+  new NvidiaChatSession(history);
 
-// ─── Transcription (Vision) ───────────────────────────────────────────────────
+// ─── Transcription (Vision / Text) ───────────────────────────────────────────
 
 const fileToGenerativePart = async (
   file: File
@@ -340,11 +328,11 @@ export const transcribeFiles = async (
   ];
 
   const result = await withRetry(async () => {
-    const res = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
+    const res = await fetch(`${NVIDIA_BASE}/chat/completions`, {
       method: 'POST',
       headers: buildHeaders(),
       body: JSON.stringify({
-        model: getOpenRouterModel(),
+        model: getNvidiaModel(),
         messages: [{ role: 'user', content }],
         response_format: { type: 'json_object' },
       }),
@@ -352,7 +340,7 @@ export const transcribeFiles = async (
 
     if (!res.ok) {
       const err = await res.text();
-      throw new Error(`OpenRouter transcription error ${res.status}: ${err}`);
+      throw new Error(`Nvidia transcription error ${res.status}: ${err}`);
     }
 
     const json = await res.json();

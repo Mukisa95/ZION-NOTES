@@ -1,7 +1,8 @@
 import React, { useState, FormEvent, useEffect, useRef } from 'react';
 import { generateText } from '../services/aiService';
-import { XIcon, SendIcon, BrainIcon, CheckIcon } from './icons';
+import { XIcon, SendIcon, BrainIcon, CheckIcon, UserIcon } from './icons';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ConversationMessage {
   role: 'user' | 'model' | 'system';
@@ -20,6 +21,7 @@ type ConversationStep = 'initial' | 'analyzing' | 'specific_response' | 'vague_r
 
 
 export const HelpMeThinkModal: React.FC<HelpMeThinkModalProps> = ({ isOpen, onClose, onInsertText, initialSession, onFinish }) => {
+  const { user } = useAuth();
   const [step, setStep] = useState<ConversationStep>('initial');
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -200,6 +202,21 @@ Generate the content now.`;
   const renderFooter = () => {
     const inputForm = (handler: (e: FormEvent) => void, placeholder: string) => (
       <form onSubmit={handler} className="relative flex items-center gap-2">
+        {user && (
+          <div className="flex-shrink-0 w-9 h-9 rounded-full overflow-hidden shadow-sm flex items-center justify-center border border-gray-200 dark:border-gray-700">
+            {user.photoURL ? (
+              <img 
+                src={user.photoURL} 
+                alt={user.displayName || 'User'} 
+                className="w-full h-full object-cover" 
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                <UserIcon className="w-4 h-4 text-white" />
+              </div>
+            )}
+          </div>
+        )}
         <input
           type="text"
           value={inputValue}
@@ -309,6 +326,21 @@ Generate the content now.`;
                       <MarkdownRenderer content={msg.content} className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-headings:my-2 prose-li:my-0.5" />
                     </div>
                   </div>
+                  {msg.role === 'user' && (
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden shadow-sm flex items-center justify-center">
+                      {user && user.photoURL ? (
+                        <img 
+                          src={user.photoURL} 
+                          alt={user.displayName || 'User'} 
+                          className="w-full h-full object-cover" 
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
+                          <UserIcon className="w-5 h-5 text-gray-700 dark:text-gray-200" />
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
             );
           })}

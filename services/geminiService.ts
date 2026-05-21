@@ -58,10 +58,11 @@ export const generateText = async (prompt: string, images?: { mimeType: string; 
   }
 };
 
-export const createGeminiChatSession = (): Chat => {
+export const createGeminiChatSession = (history?: any[]): Chat => {
   const ai = getAI();
   return ai.chats.create({
     model: TEXT_MODEL,
+    history: history,
     config: {
       systemInstruction:
         'You are a helpful assistant for a note-taking app. Be concise and clear in your responses. Always use rich Markdown formatting (like **bold**, *italics*, and bulleted or numbered lists) to enhance readability and structure. Use indentation for nested lists to create clear hierarchies.',

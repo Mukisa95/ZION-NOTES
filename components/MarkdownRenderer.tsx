@@ -93,6 +93,43 @@ const renderTree = (tree: Tree | null, keyPrefix: string): React.ReactNode => {
 };
 
 
+type Alignment = 'left' | 'center' | 'right';
+
+const isDelimiterRow = (line: string): boolean => {
+  const trimmed = line.trim();
+  if (!trimmed.includes('|') || !trimmed.includes('-')) return false;
+  return /^[\s|:\-]+$/.test(trimmed);
+};
+
+const parseTableFields = (line: string): string[] => {
+  const parts = line.split('|');
+  if (line.trim().startsWith('|')) {
+    parts.shift();
+  }
+  if (line.trim().endsWith('|')) {
+    parts.pop();
+  }
+  return parts.map(p => p.trim());
+};
+
+const parseAlignments = (delimiterLine: string): Alignment[] => {
+  const fields = parseTableFields(delimiterLine);
+  return fields.map(field => {
+    const trimmed = field.trim();
+    const alignLeft = trimmed.startsWith(':');
+    const alignRight = trimmed.endsWith(':');
+    if (alignLeft && alignRight) return 'center';
+    if (alignRight) return 'right';
+    return 'left';
+  });
+};
+
+const getAlignmentClass = (alignment: Alignment): string => {
+  if (alignment === 'center') return 'text-center';
+  if (alignment === 'right') return 'text-right';
+  return 'text-left';
+};
+
 export const MarkdownRenderer: React.FC<{ content: string; className?: string }> = ({ content, className }) => {
   if (!content) return null;
 
@@ -141,36 +178,102 @@ export const MarkdownRenderer: React.FC<{ content: string; className?: string }>
     flushBlockquote(key);
   };
 
-  lines.forEach((line, index) => {
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
     const trimmedLine = line.trim();
     const isListItem = /^\s*(\*|-|\d+\.)\s/.test(line);
 
+    // Rule 0: Check if we are starting a table
+    if (line.includes('|') && i + 1 < lines.length && isDelimiterRow(lines[i+1])) {
+      flushAll(`table-${i}`);
+      
+      const headerLine = line;
+      const delimiterLine = lines[i+1];
+      
+      const headers = parseTableFields(headerLine);
+      const alignments = parseAlignments(delimiterLine);
+      
+      const bodyRows: string[][] = [];
+      let j = i + 2;
+      while (j < lines.length && lines[j].includes('|')) {
+        bodyRows.push(parseTableFields(lines[j]));
+        j++;
+      }
+      
+      const tableKey = `table-${i}`;
+      elements.push(
+        <div key={tableKey} className="overflow-x-auto my-4 rounded-xl border border-gray-200 dark:border-gray-700/80 shadow-sm">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700/80 text-sm">
+            <thead className="bg-gray-50 dark:bg-gray-800/50">
+              <tr>
+                {headers.map((header, idx) => {
+                  const alignmentClass = getAlignmentClass(alignments[idx]);
+                  return (
+                    <th
+                      key={`th-${idx}`}
+                      className={`px-4 py-3 font-semibold text-gray-900 dark:text-gray-100 border-r last:border-r-0 border-gray-200 dark:border-gray-700/80 ${alignmentClass}`}
+                    >
+                      {parseInline(header, `th-text-${idx}`)}
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700/50 bg-white dark:bg-gray-800">
+              {bodyRows.map((row, rowIdx) => (
+                <tr key={`tr-${rowIdx}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
+                  {headers.map((_, colIdx) => {
+                    const cellValue = row[colIdx] || '';
+                    const alignmentClass = getAlignmentClass(alignments[colIdx]);
+                    return (
+                      <td
+                        key={`td-${rowIdx}-${colIdx}`}
+                        className={`px-4 py-3 text-gray-700 dark:text-gray-300 border-r last:border-r-0 border-gray-200/60 dark:border-gray-700/40 ${alignmentClass}`}
+                      >
+                        {parseInline(cellValue, `td-text-${rowIdx}-${colIdx}`)}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+      
+      i = j;
+      continue;
+    }
+
     // Rule 1: If it's a list item, add to the list buffer.
     if (isListItem) {
-      flushParagraph(`p-${index}`);
-      flushBlockquote(`bq-${index}`);
+      flushParagraph(`p-${i}`);
+      flushBlockquote(`bq-${i}`);
       listBuffer.push(line);
-      return;
+      i++;
+      continue;
     }
     
     // Rule 2: If it's a blank line AND we're in a list context, add it to the list buffer.
     if (trimmedLine === '' && listBuffer.length > 0) {
       listBuffer.push(line);
-      return;
+      i++;
+      continue;
     }
     
     // Rule 3: If we are here, the line is not a list item, and it is not a blank line continuing a list.
     // This means any active list must end.
-    flushList(`l-${index}`);
+    flushList(`l-${i}`);
     
     // Now process the current line as a new block type.
     if (trimmedLine.startsWith('>')) {
-      flushParagraph(`p-${index}`);
-      flushBlockquote(`bq-${index}`); // Flush previous before starting new one
+      flushParagraph(`p-${i}`);
+      flushBlockquote(`bq-${i}`); // Flush previous before starting new one
       blockquoteBuffer.push(line.substring(line.indexOf('>') + 1).trimStart());
     } else if (trimmedLine.startsWith('#')) {
-      flushAll(`all-${index}`);
-      const key = `h-${index}`;
+      flushAll(`all-${i}`);
+      const key = `h-${i}`;
       if (trimmedLine.startsWith('#### ')) {
         elements.push(<h4 key={key}>{parseInline(trimmedLine.substring(5), `${key}-text`)}</h4>);
       } else if (trimmedLine.startsWith('### ')) {
@@ -183,14 +286,15 @@ export const MarkdownRenderer: React.FC<{ content: string; className?: string }>
         paragraphBuffer.push(line);
       }
     } else if (trimmedLine !== '') {
-      flushBlockquote(`bq-${index}`);
+      flushBlockquote(`bq-${i}`);
       paragraphBuffer.push(line);
     } else {
       // This is a blank line that doesn't continue a list. Flush paragraphs.
-      flushParagraph(`p-${index}`);
-      flushBlockquote(`bq-${index}`);
+      flushParagraph(`p-${i}`);
+      flushBlockquote(`bq-${i}`);
     }
-  });
+    i++;
+  }
 
   flushAll(`final`);
 

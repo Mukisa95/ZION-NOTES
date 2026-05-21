@@ -129,19 +129,19 @@ export const AiPreviewModal: React.FC<AiPreviewModalProps> = ({
 
   const mainActions = hasSelection
     ? [
-        { label: 'Replace', icon: <ReplaceIcon className="h-5 w-5 mr-2" />, action: onReplace },
-        { label: 'Insert After', icon: <InsertAfterIcon className="h-5 w-5 mr-2" />, action: onInsertAfter },
-        ...(availableDocuments.length > 0 && onInsertToDocument ? [{ label: 'Select Other Document', icon: <DocumentIcon className="h-5 w-5 mr-2" />, action: () => setShowDocumentSelector(true) }] : []),
+        { label: 'Replace', action: onReplace },
+        { label: 'After', action: onInsertAfter },
+        ...(availableDocuments.length > 0 && onInsertToDocument ? [{ label: 'Switch Doc', action: () => setShowDocumentSelector(true) }] : []),
       ]
     : [
-        { label: 'Insert', icon: <InsertIcon className="h-5 w-5 mr-2" />, action: onInsert },
-        ...(availableDocuments.length > 0 && onInsertToDocument ? [{ label: 'Select Other Document', icon: <DocumentIcon className="h-5 w-5 mr-2" />, action: () => setShowDocumentSelector(true) }] : []),
+        { label: 'Insert', action: onInsert },
+        ...(availableDocuments.length > 0 && onInsertToDocument ? [{ label: 'Switch Doc', action: () => setShowDocumentSelector(true) }] : []),
       ];
   
   const secondaryActions = [
-    { label: 'Retake', icon: <RetakeIcon className="h-5 w-5 mr-2" />, action: onRetake },
-    { label: 'Copy', icon: <CopyIcon className="h-5 w-5 mr-2" />, action: onCopy },
-    { label: 'Prompt', icon: <PenIcon className="h-5 w-5 mr-2" />, action: onFollowUpPrompt },
+    { label: 'Retake', action: onRetake },
+    { label: 'Copy', action: onCopy },
+    { label: 'Prompt', action: onFollowUpPrompt },
   ];
 
   const renderContent = () => {
@@ -228,9 +228,8 @@ export const AiPreviewModal: React.FC<AiPreviewModalProps> = ({
             {selectedDocumentId && (
               <button
                 onClick={handleInsertAtCursor}
-                className="mt-3 w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                className="mt-3 w-full flex items-center justify-center px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors text-xs sm:text-sm"
               >
-                <InsertIcon className="h-4 w-4 mr-2" />
                 Insert at Cursor
               </button>
             )}
@@ -293,18 +292,18 @@ export const AiPreviewModal: React.FC<AiPreviewModalProps> = ({
 
         <footer className="p-4 border-t border-gray-200 dark:border-gray-700">
           {!isAlternativesMode && (
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 {mainActions.map(btn => (
-                  <button key={btn.label} onClick={btn.action} disabled={buttonsDisabled} className="flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors text-sm">
-                    {btn.icon}{btn.label}
+                  <button key={btn.label} onClick={btn.action} disabled={buttonsDisabled} className="px-2.5 sm:px-4 py-1.5 sm:py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors text-xs sm:text-sm">
+                    {btn.label}
                   </button>
                 ))}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                 {secondaryActions.map(btn => (
-                  <button key={btn.label} onClick={btn.action} disabled={buttonsDisabled} className="flex items-center px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm">
-                    {btn.icon}{btn.label}
+                  <button key={btn.label} onClick={btn.action} disabled={buttonsDisabled} className="px-2 sm:px-3 py-1.5 sm:py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs sm:text-sm">
+                    {btn.label}
                   </button>
                 ))}
               </div>

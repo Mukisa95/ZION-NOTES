@@ -25,6 +25,15 @@ const OPENROUTER_POPULAR_MODELS = [
 
 const DEFAULT_OPENROUTER_MODEL = 'qwen/qwen3.6-plus:free';
 
+// Well-known Nvidia models for quick selection
+const NVIDIA_POPULAR_MODELS = [
+  { id: 'nvidia/nemotron-3-super-120b-a12b:free',       label: 'Nemotron-3 Super 120B (Free) ⭐' },
+  { id: 'custom',                                        label: '✏️  Custom model ID…' },
+];
+
+const DEFAULT_NVIDIA_MODEL = 'nvidia/nemotron-3-super-120b-a12b:free';
+const DEFAULT_NVIDIA_KEY = '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';
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     const [provider, setProvider] = useState<AiProvider>('openrouter');
     const [saved, setSaved] = useState(false);
@@ -38,6 +47,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     // Gemini state
     const [geminiKey, setGeminiKey] = useState('');
     const [showGeminiKey, setShowGeminiKey] = useState(false);
+
+    // Nvidia state
+    const [nvidiaKey, setNvidiaKey] = useState('');
+    const [nvidiaModelSelection, setNvidiaModelSelection] = useState(DEFAULT_NVIDIA_MODEL);
+    const [nvidiaCustomModel, setNvidiaCustomModel] = useState('');
+    const [showNvidiaKey, setShowNvidiaKey] = useState(false);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -59,10 +74,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
         // Load Gemini value
         setGeminiKey(localStorage.getItem('gemini_api_key') ?? '');
+
+        // Load Nvidia values
+        setNvidiaKey(localStorage.getItem('nvidia_api_key') ?? DEFAULT_NVIDIA_KEY);
+        const storedNvidiaModel = localStorage.getItem('nvidia_model') ?? DEFAULT_NVIDIA_MODEL;
+        const isNvidiaKnown = NVIDIA_POPULAR_MODELS.some(m => m.id !== 'custom' && m.id === storedNvidiaModel);
+        if (isNvidiaKnown) {
+            setNvidiaModelSelection(storedNvidiaModel);
+            setNvidiaCustomModel('');
+        } else {
+            setNvidiaModelSelection('custom');
+            setNvidiaCustomModel(storedNvidiaModel);
+        }
     }, [isOpen]);
 
     const getEffectiveModel = () =>
         orModelSelection === 'custom' ? orCustomModel.trim() : orModelSelection;
+
+    const getEffectiveNvidiaModel = () =>
+        nvidiaModelSelection === 'custom' ? nvidiaCustomModel.trim() : nvidiaModelSelection;
 
     const handleSave = () => {
         setActiveProvider(provider);
@@ -71,6 +101,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             const modelToSave = getEffectiveModel() || DEFAULT_OPENROUTER_MODEL;
             localStorage.setItem('openrouter_api_key', orKey.trim());
             localStorage.setItem('openrouter_model', modelToSave);
+        } else if (provider === 'nvidia') {
+            const modelToSave = getEffectiveNvidiaModel() || DEFAULT_NVIDIA_MODEL;
+            localStorage.setItem('nvidia_api_key', nvidiaKey.trim());
+            localStorage.setItem('nvidia_model', modelToSave);
         } else {
             if (geminiKey.trim()) {
                 localStorage.setItem('gemini_api_key', geminiKey.trim());
@@ -88,18 +122,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         localStorage.removeItem('openrouter_api_key');
         localStorage.removeItem('openrouter_model');
         localStorage.removeItem('gemini_api_key');
+        localStorage.removeItem('nvidia_api_key');
+        localStorage.removeItem('nvidia_model');
         setOrKey('');
         setOrModelSelection(DEFAULT_OPENROUTER_MODEL);
         setOrCustomModel('');
         setGeminiKey('');
+        setNvidiaKey(DEFAULT_NVIDIA_KEY);
+        setNvidiaModelSelection(DEFAULT_NVIDIA_MODEL);
+        setNvidiaCustomModel('');
         setSaved(false);
     };
 
     if (!isOpen) return null;
 
     const isOpenRouter = provider === 'openrouter';
-    const canSave = isOpenRouter
+    const isNvidia = provider === 'nvidia';
+    const canSave = provider === 'openrouter'
         ? !!orKey.trim()
+        : provider === 'nvidia'
+        ? !!nvidiaKey.trim()
         : !!geminiKey.trim();
 
     return (
@@ -129,24 +171,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
                             🤖 AI Provider
                         </label>
-                        <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100 dark:bg-gray-700 rounded-xl">
-                            {(['openrouter', 'gemini'] as AiProvider[]).map(p => (
+                        <div className="grid grid-cols-3 gap-2 p-1 bg-gray-100 dark:bg-gray-700 rounded-xl">
+                            {(['openrouter', 'gemini', 'nvidia'] as AiProvider[]).map(p => (
                                 <button
                                     key={p}
                                     onClick={() => setProvider(p)}
                                     className={`py-2.5 px-4 rounded-lg text-sm font-semibold transition-all duration-200 ${
                                         provider === p
-                                            ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                                            ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm font-bold'
                                             : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                                     }`}
                                 >
-                                    {p === 'openrouter' ? '🔀 OpenRouter' : '✨ Google Gemini'}
+                                    {p === 'openrouter' ? '🔀 OpenRouter' : p === 'gemini' ? '✨ Gemini' : '🟢 Nvidia'}
                                 </button>
                             ))}
                         </div>
                         <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                            {isOpenRouter
+                            {provider === 'openrouter'
                                 ? 'Access hundreds of models through OpenRouter — including many free tiers.'
+                                : provider === 'nvidia'
+                                ? 'Use Nvidia API for high-performance inference and access model catalogs.'
                                 : 'Use Google\'s Gemini models directly via Google AI Studio.'}
                         </p>
                     </div>
@@ -223,8 +267,80 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         </div>
                     )}
 
+                    {/* ───── Nvidia config ───── */}
+                    {isNvidia && (
+                        <div className="space-y-4">
+                            {/* API Key */}
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                                    🔑 Nvidia API Key
+                                </label>
+                                <div className="relative">
+                                    <input
+                                        id="nvidia-api-key"
+                                        type={showNvidiaKey ? 'text' : 'password'}
+                                        value={nvidiaKey}
+                                        onChange={e => setNvidiaKey(e.target.value)}
+                                        placeholder="nvapi-..."
+                                        className="w-full px-4 py-3 pr-20 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 transition-all duration-200"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowNvidiaKey(v => !v)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 px-3 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 bg-gray-100 dark:bg-gray-600 rounded-lg transition-colors"
+                                    >
+                                        {showNvidiaKey ? 'Hide' : 'Show'}
+                                    </button>
+                                </div>
+                                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                    Get your key at{' '}
+                                    <a href="https://build.nvidia.com" target="_blank" rel="noopener noreferrer"
+                                        className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">
+                                        build.nvidia.com
+                                    </a>
+                                </p>
+                            </div>
+
+                            {/* Model Selector */}
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                                    🧠 Model
+                                </label>
+                                <select
+                                    id="nvidia-model-select"
+                                    value={nvidiaModelSelection}
+                                    onChange={e => setNvidiaModelSelection(e.target.value)}
+                                    className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 transition-all duration-200 appearance-none cursor-pointer"
+                                >
+                                    {NVIDIA_POPULAR_MODELS.map(m => (
+                                        <option key={m.id} value={m.id}>{m.label}</option>
+                                    ))}
+                                </select>
+
+                                {nvidiaModelSelection === 'custom' && (
+                                    <input
+                                        id="nvidia-model-custom"
+                                        type="text"
+                                        value={nvidiaCustomModel}
+                                        onChange={e => setNvidiaCustomModel(e.target.value)}
+                                        placeholder="e.g. nvidia/nemotron-3-super-120b-a12b:free"
+                                        className="mt-2 w-full px-4 py-3 border-2 border-indigo-300 dark:border-indigo-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 transition-all duration-200"
+                                    />
+                                )}
+
+                                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                    Browse all Nvidia models at{' '}
+                                    <a href="https://build.nvidia.com" target="_blank" rel="noopener noreferrer"
+                                        className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium">
+                                        build.nvidia.com
+                                    </a>
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
                     {/* ───── Gemini config ───── */}
-                    {!isOpenRouter && (
+                    {provider === 'gemini' && (
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                                 🔑 Google Gemini API Key

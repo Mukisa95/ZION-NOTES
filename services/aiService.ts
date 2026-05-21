@@ -7,9 +7,10 @@
  */
 
 import type { Chat, Part } from '@google/genai';
-import { AiProvider, GenericChatSession, TranscriptionOption } from '../types';
+import { AiProvider, GenericChatSession, TranscriptionOption, ChatMessage } from '../types';
 import * as openRouter from './openRouterService';
 import * as gemini from './geminiService';
+import * as nvidia from './nvidiaService';
 
 // ─── Provider helpers ─────────────────────────────────────────────────────────
 
@@ -28,25 +29,37 @@ export const generateText = async (
   prompt: string,
   images?: { mimeType: string; data: string }[]
 ): Promise<string> => {
-  if (getActiveProvider() === 'gemini') {
+  const provider = getActiveProvider();
+  if (provider === 'gemini') {
     return gemini.generateText(prompt, images);
+  }
+  if (provider === 'nvidia') {
+    return nvidia.generateText(prompt, images);
   }
   return openRouter.generateText(prompt, images);
 };
 
-export const createChatSession = (): GenericChatSession => {
-  if (getActiveProvider() === 'gemini') {
-    return new GeminiChatAdapter();
+export const createChatSession = (history?: ChatMessage[]): GenericChatSession => {
+  const provider = getActiveProvider();
+  if (provider === 'gemini') {
+    return new GeminiChatAdapter(history);
   }
-  return openRouter.createChatSession();
+  if (provider === 'nvidia') {
+    return nvidia.createChatSession(history);
+  }
+  return openRouter.createChatSession(history);
 };
 
 export const transcribeFiles = async (
   files: File[],
   option: TranscriptionOption
 ): Promise<{ html: string; errors: { original: string; suggestion: string }[] }> => {
-  if (getActiveProvider() === 'gemini') {
+  const provider = getActiveProvider();
+  if (provider === 'gemini') {
     return gemini.transcribeFiles(files, option);
+  }
+  if (provider === 'nvidia') {
+    return nvidia.transcribeFiles(files, option);
   }
   return openRouter.transcribeFiles(files, option);
 };
@@ -60,10 +73,20 @@ export const transcribeFiles = async (
  */
 class GeminiChatAdapter implements GenericChatSession {
   private session: Chat | null = null;
+  private history: any[] | undefined;
+
+  constructor(history?: ChatMessage[]) {
+    if (history && history.length > 0) {
+      this.history = history.map(msg => ({
+        role: msg.role === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.text }]
+      }));
+    }
+  }
 
   private getSession(): Chat {
     if (!this.session) {
-      this.session = gemini.createGeminiChatSession();
+      this.session = gemini.createGeminiChatSession(this.history);
     }
     return this.session;
   }

@@ -2,7 +2,8 @@ import React, { useState, useRef, useEffect, FormEvent } from 'react';
 import { GenericChatSession } from '../types';
 import { ChatMessage } from '../types';
 import { createChatSession } from '../services/aiService';
-import { XIcon, SendIcon, PlusIcon, BotIcon, UserIcon, PaperClipIcon, SparklesIcon } from './icons';
+import { useAuth } from '../contexts/AuthContext';
+import { XIcon, SendIcon, PlusIcon, BotIcon, UserIcon, PaperClipIcon, SparklesIcon, EditIcon, RetakeIcon, CopyIcon, CheckIcon, UndoIcon } from './icons';
 import { MarkdownRenderer } from './MarkdownRenderer';
 
 
@@ -19,12 +20,17 @@ const fileToBase64 = (file: File): Promise<string> =>
   });
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({ addTextToNote }) => {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [attachedImages, setAttachedImages] = useState<{ file: File; dataUrl: string }[]>([]);
   const chatRef = useRef<GenericChatSession | null>(null);
+
+  const [editingMessageIndex, setEditingMessageIndex] = useState<number | null>(null);
+  const [editingText, setEditingText] = useState<string>('');
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -62,35 +68,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ addTextToNote }) => {
     setAttachedImages(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    if ((!input.trim() && attachedImages.length === 0) || isLoading) return;
-
-    const userMessage: ChatMessage = { 
-      role: 'user', 
-      text: input, 
-      imagePreviews: attachedImages.map(img => img.dataUrl),
-    };
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
+  const runChatStream = async (messageText: string, messageImages?: { mimeType: string; data: string }[]) => {
     setIsLoading(true);
-    
-    let imagesToSend: { mimeType: string; data: string }[] | null = null;
-    if (attachedImages.length > 0) {
-        imagesToSend = await Promise.all(
-            attachedImages.map(async img => {
-                const base64Data = await fileToBase64(img.file);
-                return { mimeType: img.file.type, data: base64Data };
-            })
-        );
-        setAttachedImages([]);
-    }
-
     try {
       if (chatRef.current) {
         const stream = chatRef.current.sendMessageStream({
-          message: input,
-          images: imagesToSend ?? undefined,
+          message: messageText,
+          images: messageImages,
         });
 
         let modelResponse = '';
@@ -110,6 +94,98 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ addTextToNote }) => {
       setMessages(prev => [...prev, { role: 'model', text: "Sorry, I couldn't get a response. Please try again." }]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if ((!input.trim() && attachedImages.length === 0) || isLoading) return;
+
+    const userMessage: ChatMessage = { 
+      role: 'user', 
+      text: input, 
+      imagePreviews: attachedImages.map(img => img.dataUrl),
+    };
+    
+    let imagesToSend: { mimeType: string; data: string }[] | null = null;
+    if (attachedImages.length > 0) {
+        imagesToSend = await Promise.all(
+            attachedImages.map(async img => {
+                const base64Data = await fileToBase64(img.file);
+                return { mimeType: img.file.type, data: base64Data };
+            })
+        );
+        userMessage.images = imagesToSend;
+        setAttachedImages([]);
+    }
+
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+
+    await runChatStream(input, imagesToSend ?? undefined);
+  };
+
+  const handleStartEdit = (index: number) => {
+    setEditingMessageIndex(index);
+    setEditingText(messages[index].text);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessageIndex(null);
+    setEditingText('');
+  };
+
+  const handleSaveEdit = async (index: number) => {
+    if (isLoading || !editingText.trim()) return;
+
+    const currentMsg = messages[index];
+    const updatedUserMsg: ChatMessage = {
+      ...currentMsg,
+      text: editingText.trim(),
+    };
+
+    const truncatedHistory = [...messages.slice(0, index), updatedUserMsg];
+    setMessages(truncatedHistory);
+
+    setEditingMessageIndex(null);
+    setEditingText('');
+
+    const historyBefore = messages.slice(0, index);
+    chatRef.current = createChatSession(historyBefore);
+
+    await runChatStream(updatedUserMsg.text, updatedUserMsg.images);
+  };
+
+  const handleRetry = async (index: number) => {
+    if (isLoading) return;
+
+    const userMsgIndex = index - 1;
+    if (userMsgIndex < 0) return;
+    const userMsg = messages[userMsgIndex];
+    if (userMsg.role !== 'user') return;
+
+    const truncatedHistory = messages.slice(0, userMsgIndex + 1);
+    setMessages(truncatedHistory);
+
+    const historyBefore = messages.slice(0, userMsgIndex);
+    chatRef.current = createChatSession(historyBefore);
+
+    await runChatStream(userMsg.text, userMsg.images);
+  };
+
+  const handleCopyText = (text: string, index: number) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedIndex(index);
+      setTimeout(() => {
+        setCopiedIndex(null);
+      }, 2000);
+    });
+  };
+
+  const handleToPrompt = (text: string) => {
+    setInput(text);
+    if (textareaRef.current) {
+      textareaRef.current.focus();
     }
   };
   
@@ -150,26 +226,123 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ addTextToNote }) => {
             {msg.role === 'model' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-900 flex items-center justify-center text-blue-500 shadow-sm"><BotIcon className="w-5 h-5"/></div>}
             <div className={`group relative text-sm max-w-[85%] ${msg.role === 'user' ? 'order-1' : ''}`}>
                 <div className={`px-4 py-2.5 shadow-sm ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-t-2xl rounded-bl-2xl' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-t-2xl rounded-br-2xl'}`}>
-                    {msg.imagePreviews && msg.imagePreviews.length > 0 && (
-                        <div className="grid grid-cols-2 gap-2 mb-2">
-                            {msg.imagePreviews.map((src, i) => (
-                                <img key={i} src={src} alt={`User attachment ${i+1}`} className="rounded-lg max-h-40 w-full object-cover" />
-                            ))}
+                    {msg.role === 'user' && editingMessageIndex === index ? (
+                        <div className="w-full flex flex-col gap-2 min-w-[200px] sm:min-w-[300px]">
+                          <textarea
+                            value={editingText}
+                            onChange={(e) => setEditingText(e.target.value)}
+                            className="w-full p-2.5 bg-blue-700/50 text-white border border-blue-400/50 rounded-xl focus:outline-none focus:border-white text-sm resize-none shadow-inner"
+                            rows={Math.min(5, Math.max(2, editingText.split('\n').length))}
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSaveEdit(index);
+                              }
+                            }}
+                          />
+                          <div className="flex justify-end gap-2 text-xs">
+                            <button
+                              onClick={handleCancelEdit}
+                              className="px-3 py-1.5 bg-blue-700/30 hover:bg-blue-700/60 text-blue-100 rounded-lg transition-colors font-medium border border-blue-400/20"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => handleSaveEdit(index)}
+                              className="px-3 py-1.5 bg-white hover:bg-blue-50 text-blue-700 rounded-lg transition-colors font-medium shadow-sm"
+                              disabled={!editingText.trim() || isLoading}
+                            >
+                              Save
+                            </button>
+                          </div>
                         </div>
+                    ) : (
+                        <>
+                            {msg.imagePreviews && msg.imagePreviews.length > 0 && (
+                                <div className="grid grid-cols-2 gap-2 mb-2">
+                                    {msg.imagePreviews.map((src, i) => (
+                                        <img key={i} src={src} alt={`User attachment ${i+1}`} className="rounded-lg max-h-40 w-full object-cover" />
+                                    ))}
+                                </div>
+                            )}
+                            {msg.text && <MarkdownRenderer content={msg.text} className={msg.role === 'model' ? 'prose prose-sm dark:prose-invert max-w-none prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-headings:my-2 prose-li:my-0.5' : ''} />}
+                        </>
                     )}
-                    {msg.text && <MarkdownRenderer content={msg.text} className={msg.role === 'model' ? 'prose prose-sm dark:prose-invert max-w-none prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-headings:my-2 prose-li:my-0.5' : ''} />}
                 </div>
-                {msg.role === 'model' && msg.text && (
-                    <button 
-                        onClick={() => addTextToNote(msg.text)} 
-                        className="absolute -bottom-3 left-1/2 -translate-x-1/2 p-1.5 bg-white dark:bg-gray-600 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity text-blue-500 dark:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-500"
-                        title="Add to Note"
-                    >
-                      <PlusIcon className="h-4 w-4" />
-                    </button>
+                {!isLoading && editingMessageIndex === null && (
+                  <>
+                    {msg.role === 'model' && msg.text && (
+                      <div className="absolute -bottom-3.5 left-1/2 -translate-x-1/2 flex items-center gap-1 px-1.5 py-0.5 bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700/80 rounded-full shadow-md opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-150 z-10">
+                        <button 
+                            onClick={() => addTextToNote(msg.text)} 
+                            className="p-1 text-blue-500 dark:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                            title="Add to Note"
+                        >
+                          <PlusIcon className="h-3.5 w-3.5" />
+                        </button>
+                        
+                        <button 
+                            onClick={() => handleCopyText(msg.text, index)} 
+                            className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            title="Copy to Clipboard"
+                        >
+                          {copiedIndex === index ? (
+                            <CheckIcon className="h-3.5 w-3.5 text-green-500" />
+                          ) : (
+                            <CopyIcon className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+
+                        <button 
+                            onClick={() => handleToPrompt(msg.text)} 
+                            className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            title="Use as Prompt"
+                        >
+                          <UndoIcon className="h-3.5 w-3.5" />
+                        </button>
+
+                        {index > 0 && messages[index - 1].role === 'user' && (
+                          <button 
+                              onClick={() => handleRetry(index)} 
+                              className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              title="Retry Response"
+                          >
+                            <RetakeIcon className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {msg.role === 'user' && (
+                      <div className="absolute -bottom-3.5 left-1/2 -translate-x-1/2 flex items-center gap-1 px-1.5 py-0.5 bg-white dark:bg-gray-800 border border-gray-200/80 dark:border-gray-700/80 rounded-full shadow-md opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-150 z-10">
+                        <button 
+                            onClick={() => handleStartEdit(index)} 
+                            className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            title="Edit Prompt"
+                        >
+                          <EditIcon className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
             </div>
-            {msg.role === 'user' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center shadow-sm"><UserIcon className="w-5 h-5 text-gray-700 dark:text-gray-200" /></div>}
+            {msg.role === 'user' && (
+              <div className="flex-shrink-0 w-8 h-8 rounded-full overflow-hidden shadow-sm flex items-center justify-center">
+                {user && user.photoURL ? (
+                  <img 
+                    src={user.photoURL} 
+                    alt={user.displayName || 'User'} 
+                    className="w-full h-full object-cover" 
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
+                    <UserIcon className="w-5 h-5 text-gray-700 dark:text-gray-200" />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ))}
         {isLoading && messages.length > 0 && messages[messages.length-1].role === 'user' && (
@@ -212,6 +385,21 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ addTextToNote }) => {
             </div>
         )}
         <form onSubmit={handleSubmit} className="relative flex items-end gap-2">
+          {user && (
+            <div className="flex-shrink-0 w-9 h-9 sm:w-8 sm:h-8 rounded-full overflow-hidden shadow-sm flex items-center justify-center mb-1 border border-gray-200 dark:border-gray-700">
+              {user.photoURL ? (
+                <img 
+                  src={user.photoURL} 
+                  alt={user.displayName || 'User'} 
+                  className="w-full h-full object-cover" 
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                  <UserIcon className="w-4 h-4 text-white" />
+                </div>
+              )}
+            </div>
+          )}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
