@@ -1,8 +1,8 @@
 /**
  * researchAiService.ts
- * All AI calls for the Research Component, built on top of openRouterService.
+ * All AI calls for the Research Component, routed through the active AI provider.
  */
-import { generateText } from './openRouterService';
+import { generateText } from './aiService';
 import { ResearchResource, NoteGenerationConfig, QaConfig } from '../types';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
