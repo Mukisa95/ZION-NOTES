@@ -8,7 +8,7 @@
  */
 
 import mammoth from 'mammoth';
-import { ChatMessage, GenericChatSession, TranscriptionOption } from '../types';
+import { GenericChatSession, TranscriptionOption } from '../types';
 
 // ─── Config helpers ───────────────────────────────────────────────────────────
 
@@ -20,12 +20,22 @@ export const getOpenRouterApiKey = (): string =>
 export const getOpenRouterModel = (): string =>
   localStorage.getItem('openrouter_model') ?? 'qwen/qwen3.6-plus:free';
 
-const buildHeaders = () => ({
-  Authorization: `Bearer ${getOpenRouterApiKey()}`,
-  'Content-Type': 'application/json',
-  'HTTP-Referer': window.location.origin,
-  'X-Title': 'Zion Notes',
-});
+const buildHeaders = () => {
+  const apiKey = getOpenRouterApiKey().trim();
+
+  return {
+    ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+    'Content-Type': 'application/json',
+    'HTTP-Referer': window.location.origin,
+    'X-Title': 'Zion Notes',
+  };
+};
+
+const ensureOpenRouterConfigured = (): void => {
+  if (!getOpenRouterApiKey().trim()) {
+    throw new Error('OpenRouter missing API key');
+  }
+};
 
 // ─── Retry helper ─────────────────────────────────────────────────────────────
 
@@ -64,6 +74,9 @@ async function withRetry<T>(
 
 function friendlyError(error: unknown): string {
   if (error instanceof Error) {
+    if (error.message.includes('missing API key')) {
+      return 'OpenRouter is selected, but no API key is saved. Add one in Settings or switch to Gemini/Nvidia.';
+    }
     if (error.message.includes('401')) {
       return '⚠️ Invalid OpenRouter API key. Please update it in Settings.';
     }
@@ -120,6 +133,7 @@ export const generateText = async (
   images?: { mimeType: string; data: string }[]
 ): Promise<string> => {
   try {
+    ensureOpenRouterConfigured();
     const content = await buildUserContent(prompt, images);
 
     const result = await withRetry(async () => {
@@ -159,29 +173,15 @@ type ConversationMessage = {
 };
 
 class OpenRouterChatSession implements GenericChatSession {
-  private history: ConversationMessage[];
-
-  constructor(history?: ChatMessage[]) {
-    if (history && history.length > 0) {
-      const mapped = history.map(msg => ({
-        role: (msg.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
-        content: msg.text
-      }));
-      this.history = [
-        { role: 'system', content: SYSTEM_PROMPT },
-        ...mapped
-      ];
-    } else {
-      this.history = [
-        { role: 'system', content: SYSTEM_PROMPT },
-      ];
-    }
-  }
+  private history: ConversationMessage[] = [
+    { role: 'system', content: SYSTEM_PROMPT },
+  ];
 
   async *sendMessageStream(params: {
     message: string;
     images?: { mimeType: string; data: string }[];
   }): AsyncIterable<string> {
+    ensureOpenRouterConfigured();
     const userContent = await buildUserContent(params.message, params.images);
     this.history.push({ role: 'user', content: userContent });
 
@@ -269,8 +269,8 @@ class OpenRouterChatSession implements GenericChatSession {
   }
 }
 
-export const createChatSession = (history?: ChatMessage[]): GenericChatSession =>
-  new OpenRouterChatSession(history);
+export const createChatSession = (): GenericChatSession =>
+  new OpenRouterChatSession();
 
 // ─── Transcription (Vision) ───────────────────────────────────────────────────
 
@@ -331,6 +331,7 @@ export const transcribeFiles = async (
   files: File[],
   option: TranscriptionOption
 ): Promise<{ html: string; errors: { original: string; suggestion: string }[] }> => {
+  ensureOpenRouterConfigured();
   const prompt = getTranscriptionPrompt(option);
   const fileParts = await Promise.all(files.map(fileToGenerativePart));
 
