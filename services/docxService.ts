@@ -1,5 +1,5 @@
 import mammoth from 'mammoth';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ExternalHyperlink, Table, TableRow, TableCell, WidthType, convertInchesToTwip, ImageRun } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ExternalHyperlink, Table, TableRow, TableCell, WidthType, convertInchesToTwip, ImageRun, BorderStyle, ShadingType, TableLayoutType, VerticalAlignTable } from 'docx';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 
@@ -21,6 +21,30 @@ interface ParagraphData {
     listStyle?: string;
     listLevel?: number;
     numId?: string;
+}
+
+interface WordBorderData {
+    style?: string;
+    color?: string;
+    size?: number;
+}
+
+interface WordTableCellData {
+    colSpan?: number;
+    rowSpan?: number;
+    widthPx?: number;
+    shading?: string;
+    verticalAlign?: string;
+    borders?: Record<string, WordBorderData>;
+}
+
+interface WordTableData {
+    widthPx?: number;
+    widthPercent?: number;
+    alignment?: string;
+    borders?: Record<string, WordBorderData>;
+    rows: WordTableCellData[][];
+    columnWidthsPx?: number[];
 }
 
 const normalizeComparableText = (text: string): string =>
@@ -61,6 +85,132 @@ const textMatchesParagraph = (htmlText: string, wordText: string): boolean => {
 
 const getDirectChild = (element: Element, localName: string): Element | null =>
     Array.from(element.children).find(child => child.localName === localName || child.tagName === localName) || null;
+
+const getDirectChildren = (element: Element, localName: string): Element[] =>
+    Array.from(element.children).filter(child => child.localName === localName || child.tagName === localName);
+
+const twipsToPx = (twips: number): number => Math.max(1, Math.round((twips / 1440) * 96));
+
+const pxToTwips = (px: number): number => Math.max(1, Math.round((px / 96) * 1440));
+
+const normalizeHexColor = (value?: string | null): string | undefined => {
+    if (!value || value === 'auto') return undefined;
+    const trimmed = value.trim().replace(/^#/, '');
+    return /^[0-9a-f]{6}$/i.test(trimmed) ? trimmed.toUpperCase() : undefined;
+};
+
+const parseCssSizeToPx = (value?: string | null): number | undefined => {
+    if (!value) return undefined;
+    const match = value.trim().match(/^([\d.]+)(px|pt|in|cm|mm|%)?$/);
+    if (!match) return undefined;
+    const amount = parseFloat(match[1]);
+    if (Number.isNaN(amount)) return undefined;
+    switch (match[2]) {
+        case 'pt': return amount * (96 / 72);
+        case 'in': return amount * 96;
+        case 'cm': return amount * (96 / 2.54);
+        case 'mm': return amount * (96 / 25.4);
+        case '%': return undefined;
+        case 'px':
+        default:
+            return amount;
+    }
+};
+
+const cssColorToHex = (value?: string | null): string | undefined => {
+    if (!value) return undefined;
+    const trimmed = value.trim();
+    if (!trimmed || trimmed === 'transparent') return undefined;
+    if (trimmed.startsWith('#')) return normalizeHexColor(trimmed);
+    const rgbMatch = trimmed.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+    if (rgbMatch) {
+        return [rgbMatch[1], rgbMatch[2], rgbMatch[3]]
+            .map(channel => parseInt(channel, 10).toString(16).padStart(2, '0'))
+            .join('')
+            .toUpperCase();
+    }
+    return undefined;
+};
+
+const wordBorderToCss = (border?: WordBorderData): string | undefined => {
+    if (!border || border.style === 'nil' || border.style === 'none') return undefined;
+    const widthPx = Math.max(1, Math.round((border.size || 4) / 4));
+    const color = border.color ? `#${border.color}` : '#d1d5db';
+    const style = border.style === 'dashed' ? 'dashed' : border.style === 'dotted' ? 'dotted' : border.style === 'double' ? 'double' : 'solid';
+    return `${widthPx}px ${style} ${color}`;
+};
+
+const extractWordBorder = (parent: Element | null, side: string): WordBorderData | undefined => {
+    const borderEl = parent ? getDirectChild(parent, side) : null;
+    if (!borderEl) return undefined;
+    return {
+        style: getWordAttr(borderEl, 'val') || undefined,
+        color: normalizeHexColor(getWordAttr(borderEl, 'color')),
+        size: parseInt(getWordAttr(borderEl, 'sz') || '4', 10),
+    };
+};
+
+const extractWordBorders = (parent: Element | null, sides: string[]): Record<string, WordBorderData> | undefined => {
+    if (!parent) return undefined;
+    const borders = sides.reduce<Record<string, WordBorderData>>((acc, side) => {
+        const border = extractWordBorder(parent, side);
+        if (border) acc[side] = border;
+        return acc;
+    }, {});
+    return Object.keys(borders).length > 0 ? borders : undefined;
+};
+
+const extractWordTables = (xmlDoc: globalThis.Document): WordTableData[] => {
+    const tables = Array.from(xmlDoc.querySelectorAll('w\\:tbl, tbl'));
+
+    return tables.map(table => {
+        const tblPr = getDirectChild(table, 'tblPr');
+        const tblW = tblPr ? getDirectChild(tblPr, 'tblW') : null;
+        const widthValue = tblW ? parseInt(getWordAttr(tblW, 'w') || '', 10) : NaN;
+        const widthType = tblW ? getWordAttr(tblW, 'type') : null;
+        const widthPercent = widthType === 'pct' && !Number.isNaN(widthValue) ? widthValue / 50 : undefined;
+        const widthPx = widthType !== 'pct' && !Number.isNaN(widthValue) ? twipsToPx(widthValue) : undefined;
+        const jc = tblPr ? getDirectChild(tblPr, 'jc') : null;
+        const alignment = jc ? getWordAttr(jc, 'val') || undefined : undefined;
+        const tableBorders = extractWordBorders(tblPr ? getDirectChild(tblPr, 'tblBorders') : null, ['top', 'left', 'bottom', 'right', 'insideH', 'insideV']);
+        const tblGrid = getDirectChild(table, 'tblGrid');
+        const gridCols = (tblGrid ? getDirectChildren(tblGrid, 'gridCol') : [])
+            .map(col => parseInt(getWordAttr(col, 'w') || '', 10))
+            .filter(width => !Number.isNaN(width))
+            .map(twipsToPx);
+
+        const rows = getDirectChildren(table, 'tr').map(row =>
+            getDirectChildren(row, 'tc').map(cell => {
+                const tcPr = getDirectChild(cell, 'tcPr');
+                const gridSpan = tcPr ? getDirectChild(tcPr, 'gridSpan') : null;
+                const tcW = tcPr ? getDirectChild(tcPr, 'tcW') : null;
+                const shd = tcPr ? getDirectChild(tcPr, 'shd') : null;
+                const vAlign = tcPr ? getDirectChild(tcPr, 'vAlign') : null;
+                const vMerge = tcPr ? getDirectChild(tcPr, 'vMerge') : null;
+                const tcBorders = tcPr ? getDirectChild(tcPr, 'tcBorders') : null;
+                const cellWidth = tcW ? parseInt(getWordAttr(tcW, 'w') || '', 10) : NaN;
+
+                return {
+                    colSpan: gridSpan ? parseInt(getWordAttr(gridSpan, 'val') || '1', 10) : undefined,
+                    widthPx: !Number.isNaN(cellWidth) && getWordAttr(tcW!, 'type') !== 'pct' ? twipsToPx(cellWidth) : undefined,
+                    shading: normalizeHexColor(shd ? getWordAttr(shd, 'fill') : undefined),
+                    verticalAlign: vAlign ? getWordAttr(vAlign, 'val') || undefined : undefined,
+                    rowSpan: vMerge && (!getWordAttr(vMerge, 'val') || getWordAttr(vMerge, 'val') === 'restart') ? 1 : undefined,
+                    borders: extractWordBorders(tcBorders, ['top', 'left', 'bottom', 'right']),
+                };
+            })
+        );
+
+        return {
+            widthPx,
+            widthPercent,
+            alignment,
+            borders: tableBorders,
+            rows,
+            columnWidthsPx: gridCols.length > 0 ? gridCols : undefined,
+        };
+    });
+};
 
 /**
  * Reads a .docx file and converts it to HTML with proper image and table handling
@@ -147,6 +297,7 @@ const extractAndProcessWithDocx = async (arrayBuffer: ArrayBuffer, baseHtml: str
     const imageDimensions: Array<{width: number, height: number}> = [];
     const textFormatting: Array<{fontSize?: string, alignment?: string, text?: string}> = [];
     const paragraphAlignments: Array<string> = [];
+    let tableData: WordTableData[] = [];
     let paragraphData: ParagraphData[] = [];
     
     try {
@@ -217,6 +368,8 @@ const extractAndProcessWithDocx = async (arrayBuffer: ArrayBuffer, baseHtml: str
             // Parse XML to extract font sizes and other properties
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(docXml, 'text/xml');
+            tableData = extractWordTables(xmlDoc);
+            console.log('Word table metadata extracted:', tableData.length);
             
             // Extract IMAGE DIMENSIONS from the XML
             const drawings = xmlDoc.querySelectorAll('w\\:drawing, drawing');
@@ -388,7 +541,7 @@ const extractAndProcessWithDocx = async (arrayBuffer: ArrayBuffer, baseHtml: str
     }
     
     // Post-process the HTML with extracted formatting
-    return postProcessHtml(baseHtml, imageDimensions, textFormatting, paragraphAlignments, paragraphData);
+    return postProcessHtml(baseHtml, imageDimensions, textFormatting, paragraphAlignments, paragraphData, tableData);
 };
 
 /**
@@ -399,7 +552,8 @@ const postProcessHtml = (
     imageDimensions: Array<{width: number, height: number}> = [], 
     textFormatting: Array<{fontSize?: string, alignment?: string, text?: string}> = [],
     paragraphAlignments: Array<string> = [],
-    paragraphData: ParagraphData[] = []
+    paragraphData: ParagraphData[] = [],
+    tableData: WordTableData[] = []
 ): string => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
@@ -477,6 +631,7 @@ const postProcessHtml = (
     const tables = doc.querySelectorAll('table');
     tables.forEach((table, tableIndex) => {
         const htmlTable = table as HTMLTableElement;
+        const wordTable = tableData[tableIndex];
         
         console.log(`Table ${tableIndex}:`, {
             rows: htmlTable.rows.length,
@@ -491,10 +646,26 @@ const postProcessHtml = (
         if (!tableStyle.includes('border-collapse')) {
             tableStyle += 'border-collapse: collapse; ';
         }
+
+        tableStyle += 'table-layout: fixed; ';
         
         // Use auto width to preserve original table dimensions, or full width if not specified
         if (!tableStyle.includes('width:')) {
-            tableStyle += 'width: auto; ';
+            if (wordTable?.widthPercent) {
+                tableStyle += `width: ${wordTable.widthPercent}%; `;
+            } else if (wordTable?.widthPx) {
+                tableStyle += `width: ${wordTable.widthPx}px; `;
+            } else {
+                tableStyle += 'width: 100%; ';
+            }
+        }
+
+        if (wordTable?.alignment && !tableStyle.includes('margin-left') && !tableStyle.includes('margin-right')) {
+            if (wordTable.alignment === 'center') {
+                tableStyle += 'margin-left: auto; margin-right: auto; ';
+            } else if (wordTable.alignment === 'right' || wordTable.alignment === 'end') {
+                tableStyle += 'margin-left: auto; margin-right: 0; ';
+            }
         }
         
         if (!tableStyle.includes('margin')) {
@@ -503,6 +674,21 @@ const postProcessHtml = (
         
         htmlTable.setAttribute('style', tableStyle);
         htmlTable.setAttribute('border', '1');
+        htmlTable.dataset.wordTable = 'true';
+
+        if (wordTable?.columnWidthsPx?.length) {
+            let colgroup = htmlTable.querySelector('colgroup');
+            if (!colgroup) {
+                colgroup = doc.createElement('colgroup');
+                htmlTable.insertBefore(colgroup, htmlTable.firstChild);
+            }
+            colgroup.innerHTML = '';
+            wordTable.columnWidthsPx.forEach(width => {
+                const col = doc.createElement('col');
+                col.style.width = `${width}px`;
+                colgroup!.appendChild(col);
+            });
+        }
         
         // Process all rows to preserve column widths
         const rows = Array.from(htmlTable.rows);
@@ -510,17 +696,39 @@ const postProcessHtml = (
             const cells = Array.from(row.cells);
             cells.forEach((cell, cellIndex) => {
                 const htmlCell = cell as HTMLElement;
+                const wordCell = wordTable?.rows[rowIndex]?.[cellIndex];
                 const existingCellStyle = htmlCell.getAttribute('style') || '';
                 let cellStyle = existingCellStyle;
+
+                if (wordCell?.colSpan && wordCell.colSpan > 1 && !htmlCell.getAttribute('colspan')) {
+                    htmlCell.setAttribute('colspan', String(wordCell.colSpan));
+                }
+                if (wordCell?.rowSpan && wordCell.rowSpan > 1 && !htmlCell.getAttribute('rowspan')) {
+                    htmlCell.setAttribute('rowspan', String(wordCell.rowSpan));
+                }
                 
                 // Add borders if not present
                 if (!cellStyle.includes('border')) {
-                    cellStyle += 'border: 1px solid #ddd; ';
+                    const defaultBorder = wordBorderToCss(wordCell?.borders?.top) || wordBorderToCss(wordTable?.borders?.insideH) || '1px solid #d1d5db';
+                    cellStyle += `border: ${defaultBorder}; `;
                 }
+
+                const borderMap: Array<[string, string]> = [
+                    ['top', 'border-top'],
+                    ['left', 'border-left'],
+                    ['bottom', 'border-bottom'],
+                    ['right', 'border-right'],
+                ];
+                borderMap.forEach(([wordSide, cssProp]) => {
+                    const border = wordBorderToCss(wordCell?.borders?.[wordSide]);
+                    if (border && !cellStyle.includes(`${cssProp}:`)) {
+                        cellStyle += `${cssProp}: ${border}; `;
+                    }
+                });
                 
                 // Add padding if not present
                 if (!cellStyle.includes('padding')) {
-                    cellStyle += 'padding: 8px; ';
+                    cellStyle += 'padding: 6px 8px; ';
                 }
                 
                 // Preserve text alignment or default to left
@@ -528,10 +736,19 @@ const postProcessHtml = (
                     const align = htmlCell.getAttribute('align') || 'left';
                     cellStyle += `text-align: ${align}; `;
                 }
+
+                if (wordCell?.verticalAlign && !cellStyle.includes('vertical-align')) {
+                    const cssVal = wordCell.verticalAlign === 'center' ? 'middle' : wordCell.verticalAlign;
+                    cellStyle += `vertical-align: ${cssVal}; `;
+                }
                 
                 // Preserve background color for header cells
                 if (cell.tagName === 'TH' && !cellStyle.includes('background')) {
                     cellStyle += 'background-color: #f2f2f2; font-weight: bold; ';
+                }
+
+                if (wordCell?.shading && !cellStyle.includes('background')) {
+                    cellStyle += `background-color: #${wordCell.shading}; `;
                 }
                 
                 // Preserve column width if specified
@@ -539,6 +756,8 @@ const postProcessHtml = (
                 if (width && !cellStyle.includes('width')) {
                     const widthValue = width.includes('%') || width.includes('px') ? width : `${width}px`;
                     cellStyle += `width: ${widthValue}; `;
+                } else if (wordCell?.widthPx && !cellStyle.includes('width')) {
+                    cellStyle += `width: ${wordCell.widthPx}px; `;
                 }
                 
                 htmlCell.setAttribute('style', cellStyle);
@@ -1162,6 +1381,57 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
     const elements: (Paragraph | Table)[] = [];
     let bulletCounter = 0;
     let numberCounter = 0;
+
+    const emptyBorder = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
+    const defaultTableBorder = { style: BorderStyle.SINGLE, size: 4, color: 'D1D5DB' };
+
+    const cssBorderToDocx = (value?: string): any => {
+        if (!value || value === 'none' || value.includes('0px')) return emptyBorder;
+        const color = cssColorToHex(value) || 'D1D5DB';
+        const widthMatch = value.match(/([\d.]+)px/);
+        const width = widthMatch ? Math.max(2, Math.round(parseFloat(widthMatch[1]) * 6)) : 4;
+        let style = BorderStyle.SINGLE;
+        if (value.includes('dashed')) style = BorderStyle.DASHED;
+        if (value.includes('dotted')) style = BorderStyle.DOTTED;
+        if (value.includes('double')) style = BorderStyle.DOUBLE;
+        return { style, size: width, color };
+    };
+
+    const getCellBorders = (cell: HTMLElement) => ({
+        top: cssBorderToDocx(cell.style.borderTop || cell.style.border),
+        bottom: cssBorderToDocx(cell.style.borderBottom || cell.style.border),
+        left: cssBorderToDocx(cell.style.borderLeft || cell.style.border),
+        right: cssBorderToDocx(cell.style.borderRight || cell.style.border),
+    });
+
+    const getCellWidth = (cell: HTMLElement, fallbackPercent: number) => {
+        const width = cell.style.width || cell.getAttribute('width');
+        if (width?.includes('%')) {
+            const pct = parseFloat(width);
+            if (!Number.isNaN(pct)) return { size: pct, type: WidthType.PERCENTAGE };
+        }
+        const px = parseCssSizeToPx(width);
+        if (px) return { size: pxToTwips(px), type: WidthType.DXA };
+        return { size: fallbackPercent, type: WidthType.PERCENTAGE };
+    };
+
+    const getTableWidth = (table: HTMLElement) => {
+        const width = table.style.width || table.getAttribute('width');
+        if (width?.includes('%')) {
+            const pct = parseFloat(width);
+            if (!Number.isNaN(pct)) return { size: pct, type: WidthType.PERCENTAGE };
+        }
+        const px = parseCssSizeToPx(width);
+        if (px) return { size: pxToTwips(px), type: WidthType.DXA };
+        return { size: 100, type: WidthType.PERCENTAGE };
+    };
+
+    const getVerticalAlign = (cell: HTMLElement) => {
+        const align = cell.style.verticalAlign;
+        if (align === 'middle' || align === 'center') return VerticalAlignTable.CENTER;
+        if (align === 'bottom') return VerticalAlignTable.BOTTOM;
+        return VerticalAlignTable.TOP;
+    };
     
     const processNode = (node: Node): TextRun[] => {
         const runs: TextRun[] = [];
@@ -1296,6 +1566,106 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
             case 'justify': return AlignmentType.JUSTIFIED;
             default: return undefined;
         }
+    };
+
+    const createParagraphFromElement = (el: HTMLElement, fallbackText = ''): Paragraph => {
+        const children = processNode(el);
+        return new Paragraph({
+            children: children.length > 0 ? children : [new TextRun({ text: fallbackText || el.textContent || '', font: 'Calibri', size: 22 })],
+            alignment: getAlignment(el),
+            spacing: { after: 100, line: 276 },
+        });
+    };
+
+    const createCellChildren = (cell: HTMLTableCellElement): (Paragraph | Table)[] => {
+        const blockChildren = Array.from(cell.children).filter(child =>
+            ['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'TABLE'].includes(child.tagName)
+        ) as HTMLElement[];
+
+        if (blockChildren.length === 0) {
+            const children = processNode(cell);
+            return [new Paragraph({
+                children: children.length > 0 ? children : [new TextRun({ text: cell.textContent || '', font: 'Calibri', size: 22 })],
+                alignment: getAlignment(cell),
+            })];
+        }
+
+        const children: (Paragraph | Table)[] = [];
+        blockChildren.forEach(child => {
+            if (child.tagName === 'TABLE') {
+                children.push(buildDocxTable(child as HTMLTableElement));
+            } else if (child.tagName === 'UL' || child.tagName === 'OL') {
+                Array.from(child.querySelectorAll(':scope > li')).forEach(li => {
+                    children.push(createParagraphFromElement(li as HTMLElement));
+                });
+            } else {
+                children.push(createParagraphFromElement(child));
+            }
+        });
+
+        return children.length > 0 ? children : [new Paragraph({ children: [new TextRun({ text: '' })] })];
+    };
+
+    const buildDocxTable = (tableEl: HTMLTableElement): Table => {
+        const rows = Array.from(tableEl.rows);
+        const maxColumns = rows.reduce((max, row) => {
+            const count = Array.from(row.cells).reduce((sum, cell) => sum + Math.max(1, cell.colSpan || 1), 0);
+            return Math.max(max, count);
+        }, 1);
+
+        const columnWidths = Array.from(tableEl.querySelectorAll('col')).map(col => {
+            const px = parseCssSizeToPx((col as HTMLElement).style.width || col.getAttribute('width'));
+            return px ? pxToTwips(px) : undefined;
+        }).filter((width): width is number => Boolean(width));
+
+        const tableRows = rows.map(row => {
+            const cells = Array.from(row.cells).map(cell => {
+                const htmlCell = cell as HTMLTableCellElement;
+                const bg = cssColorToHex(htmlCell.style.backgroundColor);
+                const fallbackPercent = 100 / Math.max(1, maxColumns);
+                const options: any = {
+                    children: createCellChildren(htmlCell),
+                    width: getCellWidth(htmlCell, fallbackPercent),
+                    columnSpan: htmlCell.colSpan && htmlCell.colSpan > 1 ? htmlCell.colSpan : undefined,
+                    rowSpan: htmlCell.rowSpan && htmlCell.rowSpan > 1 ? htmlCell.rowSpan : undefined,
+                    verticalAlign: getVerticalAlign(htmlCell),
+                    borders: getCellBorders(htmlCell),
+                    margins: {
+                        marginUnitType: WidthType.DXA,
+                        top: 90,
+                        bottom: 90,
+                        left: 120,
+                        right: 120,
+                    },
+                    shading: bg ? { type: ShadingType.CLEAR, fill: bg, color: 'auto' } : undefined,
+                };
+
+                return new TableCell(options);
+            });
+            return new TableRow({ children: cells });
+        });
+
+        return new Table({
+            rows: tableRows,
+            width: getTableWidth(tableEl),
+            columnWidths: columnWidths.length > 0 ? columnWidths : undefined,
+            layout: TableLayoutType.FIXED,
+            borders: {
+                top: defaultTableBorder,
+                bottom: defaultTableBorder,
+                left: defaultTableBorder,
+                right: defaultTableBorder,
+                insideHorizontal: defaultTableBorder,
+                insideVertical: defaultTableBorder,
+            },
+            margins: {
+                marginUnitType: WidthType.DXA,
+                top: 90,
+                bottom: 90,
+                left: 120,
+                right: 120,
+            },
+        });
     };
     
     const processElement = (el: Element) => {
@@ -1504,26 +1874,7 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
                 processOlItems(htmlEl);
                 break;
             case 'TABLE':
-                const tableEl = htmlEl as HTMLTableElement;
-                const rows = Array.from(tableEl.rows);
-                const tableRows: TableRow[] = rows.map(row => {
-                    const cells = Array.from(row.cells).map(cell => 
-                        new TableCell({
-                            children: [new Paragraph({ 
-                                children: [new TextRun({ text: cell.textContent || '' })]
-                            })],
-                            width: { size: 100 / row.cells.length, type: WidthType.PERCENTAGE }
-                        })
-                    );
-                    return new TableRow({ children: cells });
-                });
-                
-                if (tableRows.length > 0) {
-                    elements.push(new Table({
-                        rows: tableRows,
-                        width: { size: 100, type: WidthType.PERCENTAGE }
-                    }));
-                }
+                elements.push(buildDocxTable(htmlEl as HTMLTableElement));
                 break;
             case 'BR':
                 elements.push(new Paragraph({ children: [new TextRun({ text: '' })] }));

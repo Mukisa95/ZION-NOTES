@@ -1332,12 +1332,18 @@ const App: React.FC = () => {
   const handleInsertTable = (rows: number, cols: number) => {
       if (rows < 1 || cols < 1) return;
       
-      let tableHtml = '<table style="border-collapse: collapse; width: 100%; margin: 1em 0;" border="1">';
+      const colWidth = `${100 / cols}%`;
+      let tableHtml = '<table data-word-table="true" style="border-collapse: collapse; table-layout: fixed; width: 100%; margin: 1em 0;" border="1">';
+      tableHtml += '<colgroup>';
+      for (let c = 0; c < cols; c++) {
+          tableHtml += `<col style="width: ${colWidth};">`;
+      }
+      tableHtml += '</colgroup>';
       
       // Create header row
       tableHtml += '<tr>';
       for (let c = 0; c < cols; c++) {
-          tableHtml += '<th style="border: 1px solid #ddd; padding: 8px; background-color: #f2f2f2; text-align: left;">Header ' + (c + 1) + '</th>';
+          tableHtml += '<th style="border: 1px solid #d1d5db; padding: 6px 8px; background-color: #f2f2f2; text-align: left; vertical-align: top; min-width: 48px;">Header ' + (c + 1) + '</th>';
       }
       tableHtml += '</tr>';
       
@@ -1345,7 +1351,7 @@ const App: React.FC = () => {
       for (let r = 0; r < rows - 1; r++) {
           tableHtml += '<tr>';
           for (let c = 0; c < cols; c++) {
-              tableHtml += '<td style="border: 1px solid #ddd; padding: 8px; text-align: left;">Cell</td>';
+              tableHtml += '<td style="border: 1px solid #d1d5db; padding: 6px 8px; text-align: left; vertical-align: top; min-width: 48px;">Cell</td>';
           }
           tableHtml += '</tr>';
       }

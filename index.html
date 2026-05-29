@@ -183,6 +183,64 @@
   .col-resize-handle:hover {
     background-color: rgba(59, 130, 246, 0.5); /* blue-500 with opacity */
   }
+  .table-command-bar {
+    position: absolute;
+    z-index: 35;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    max-width: min(720px, calc(100% - 16px));
+    padding: 4px;
+    border: 1px solid rgba(148, 163, 184, 0.5);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
+    backdrop-filter: blur(8px);
+  }
+  .dark .table-command-bar {
+    background: rgba(31, 41, 55, 0.94);
+    border-color: rgba(75, 85, 99, 0.8);
+  }
+  .table-command-bar button {
+    min-height: 28px;
+    padding: 0 8px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    color: #334155;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .dark .table-command-bar button {
+    color: #e5e7eb;
+  }
+  .table-command-bar button:hover {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+    color: #1d4ed8;
+  }
+  .dark .table-command-bar button:hover {
+    border-color: #1d4ed8;
+    background: rgba(30, 64, 175, 0.28);
+    color: #bfdbfe;
+  }
+
+  [contenteditable] table {
+    border-collapse: collapse;
+    table-layout: fixed;
+    max-width: 100%;
+  }
+  [contenteditable] th,
+  [contenteditable] td {
+    min-width: 48px;
+    vertical-align: top;
+  }
+  [contenteditable] th:focus,
+  [contenteditable] td:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: -2px;
+  }
 
   /* For Find & Replace Highlights (non-destructive) */
   ::highlight(search-results) {
