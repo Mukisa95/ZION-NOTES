@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { NoteEditor } from './components/NoteEditor';
 import { ChatWindow } from './components/ChatSidebar';
-import { SparklesIcon, BoldIcon, ItalicIcon, TrashIcon, BrainIcon, TextColorIcon, AlignLeftIcon, AlignCenterIcon, AlignRightIcon, AlignJustifyIcon, SuperscriptIcon, SubscriptIcon, SearchIcon, ExportIcon, PdfIcon, WordIcon, UploadIcon, SettingsIcon, BulletListIcon, NumberListIcon, ChevronDownIcon, SaveIcon, FolderIcon, DocumentIcon, CloudIcon, HomeIcon, UndoIcon, RedoIcon, TableOfContentsIcon } from './components/icons';
+import { SparklesIcon, BoldIcon, ItalicIcon, TrashIcon, BrainIcon, TextColorIcon, AlignLeftIcon, AlignCenterIcon, AlignRightIcon, AlignJustifyIcon, SuperscriptIcon, SubscriptIcon, SearchIcon, ExportIcon, PdfIcon, WordIcon, UploadIcon, SettingsIcon, BulletListIcon, NumberListIcon, ChevronDownIcon, SaveIcon, FolderIcon, DocumentIcon, CloudIcon, HomeIcon, UndoIcon, RedoIcon, TableIcon, TableOfContentsIcon } from './components/icons';
 import { ListStylePicker } from './components/ListStylePicker';
 import { AlignmentPicker } from './components/AlignmentPicker';
 import { markdownToHtml } from './utils/markdown';
@@ -74,10 +74,11 @@ const FormattingToolbar: React.FC<{
   onFormat: (type: FormatType, value?: string) => void;
   onClear: () => void;
   onInsertList: (type: 'ul' | 'ol', style?: string) => void;
+  onInsertTable: () => void;
   onOpenSelectionMenu?: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
-}> = ({ onFormat, onClear, onInsertList, onOpenSelectionMenu, onUndo, onRedo }) => {
+}> = ({ onFormat, onClear, onInsertList, onInsertTable, onOpenSelectionMenu, onUndo, onRedo }) => {
     const colorInputRef = useRef<HTMLInputElement>(null);
     const fontFamilyRef = useRef<HTMLSelectElement>(null);
     const fontSizeRef = useRef<HTMLSelectElement>(null);
@@ -419,6 +420,19 @@ const FormattingToolbar: React.FC<{
             buttonIcon={<NumberListIcon className="h-3.5 w-3.5" />}
             buttonTitle="Numbered List"
           />
+        </div>
+
+        <div className="flex items-center gap-0.5 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-1 py-0.5 rounded-md border border-gray-200/50 dark:border-gray-700/50">
+          <button
+            onMouseDown={(e) => {
+              e.preventDefault();
+              onInsertTable();
+            }}
+            className="p-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 transition-all"
+            title="Insert Table"
+          >
+            <TableIcon className="h-3.5 w-3.5" />
+          </button>
         </div>
 
         <button onMouseDown={(e) => { e.preventDefault(); onClear(); }} className="p-1.5 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-red-200/50 dark:border-red-700/50" title="Clear Note">
@@ -1607,6 +1621,7 @@ const App: React.FC = () => {
                 onFormat={(type, value) => editorRef.current?.format(type, value)}
                 onClear={() => editorRef.current?.clear()}
                 onInsertList={handleInsertList}
+                onInsertTable={() => handleInsertTable(3, 3)}
                 onOpenSelectionMenu={() => {
                   editorRef.current?.openSelectionMenu();
                 }}
