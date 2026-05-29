@@ -3,6 +3,7 @@ import { ContextMenuState, AiAction, AiPreviewState, FormatType, NoteEditorHandl
 import { generateText } from '../services/aiService';
 import { PromptModal } from './PromptModal';
 import { AiPreviewModal } from './AiPreviewModal';
+import { OrganizeOptionsModal, OrganizeOptionsPayload } from './OrganizeOptionsModal';
 import { markdownToHtml, markdownToPlainText } from '../utils/markdown';
 import { parse as parseInline } from '../utils/markdownParser';
 import { SummarizeIcon, ExpandIcon, StyleIcon, ContinueIcon, SparklesIcon, MessageIcon, PenIcon, QuestionIcon, ChevronRightIcon, CheckIcon, ListChecksIcon, LightBulbIcon, StarIcon, AcademicIcon, FormalIcon, CasualIcon, ToneIcon, ConfidentIcon, FriendlyIcon, ProfessionalIcon, ListNumberedIcon, AlternativesIcon, ListIcon, BrainIcon, CopyIcon } from './icons';
@@ -122,13 +123,21 @@ const ContextMenu: React.FC<{
     ],
     selection: [
       {
-        label: 'Answer Question(s)',
+        label: 'Answer',
         icon: <QuestionIcon className="h-5 w-5 mr-3" />,
         subMenu: [
           { label: AiAction.ANSWER_DIRECT, icon: <CheckIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.ANSWER_DIRECT) },
           { label: AiAction.ANSWER_OPTIONS, icon: <ListChecksIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.ANSWER_OPTIONS) },
           { label: AiAction.ANSWER_EXPLANATION, icon: <LightBulbIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.ANSWER_EXPLANATION) },
           { label: AiAction.ANSWER_KEY_POINTS, icon: <StarIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.ANSWER_KEY_POINTS) },
+        ]
+      },
+      {
+        label: 'CAL',
+        icon: <ListNumberedIcon className="h-5 w-5 mr-3" />,
+        subMenu: [
+          { label: AiAction.CAL_DIRECT, icon: <CheckIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.CAL_DIRECT) },
+          { label: AiAction.CAL_EXPLAIN, icon: <LightBulbIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.CAL_EXPLAIN) },
         ]
       },
       {
@@ -152,6 +161,7 @@ const ContextMenu: React.FC<{
         ]
       },
       { label: AiAction.COPY_SELECTION, icon: <CopyIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.COPY_SELECTION) },
+      { label: AiAction.ORGANIZE, icon: <ListIcon className="h-5 w-5 mr-3" />, action: () => onAction(AiAction.ORGANIZE) },
       {
         label: 'Style Changes',
         icon: <StyleIcon className="h-5 w-5 mr-3" />,
@@ -282,11 +292,14 @@ export const NoteEditor = forwardRef<NoteEditorHandles, NoteEditorProps>(({ cont
   const [isPromptModalOpen, setIsPromptModalOpen] = useState<boolean>(false);
   const [promptContext, setPromptContext] = useState<{ text: string, prefix: string }>({ text: '', prefix: '' });
   const [promptInitiator, setPromptInitiator] = useState<AiAction | null>(null);
+  const [isOrganizeModalOpen, setIsOrganizeModalOpen] = useState<boolean>(false);
+  const [organizeContextText, setOrganizeContextText] = useState<string>('');
   const [previewState, setPreviewState] = useState<AiPreviewState>({ isOpen: false, isLoading: false, content: '', originalAction: null, originalSelection: null });
   const [selectedElement, setSelectedElement] = useState<HTMLElement | null>(null);
   const [cropState, setCropState] = useState<{isOpen: boolean; imageEl: HTMLImageElement | null}>({ isOpen: false, imageEl: null });
   const [promptImageContext, setPromptImageContext] = useState<string | null>(null);
   const [contextSelectionImages, setContextSelectionImages] = useState<string[]>([]);
+  const selectionChangeTimeoutRef = useRef<number | null>(null);
 
   // Refs for Find & Replace
   const searchResultsRef = useRef<{ ranges: Range[], currentIndex: number }>({ ranges: [], currentIndex: -1 });
@@ -305,6 +318,102 @@ export const NoteEditor = forwardRef<NoteEditorHandles, NoteEditorProps>(({ cont
   };
 
   const formatPt = (value: number) => `${Math.round(value * 100) / 100}pt`;
+
+  const buildOrganizePrompt = (options: OrganizeOptionsPayload) => {
+    const instructions: string[] = [];
+
+    instructions.push(
+      'Your task is to organize the selected text without changing its meaning.',
+      'Improve numbering and list structure, identify and format headings and subheadings more clearly, and make any other necessary formatting improvements.',
+      'Preserve the original content as much as possible. Do not invent new facts, do not add unrelated content, and do not remove content unless it is explicitly requested below.'
+    );
+
+    const hasAdditions = !!options.additions;
+    const hasOmissions = !!options.omissions;
+
+    if (hasAdditions || hasOmissions) {
+      instructions.push('Follow the user-specific editing rules below while organizing the text:');
+
+      if (hasAdditions) {
+        instructions.push(
+          `Additions${options.groundAdditions ? ' (grounded)' : ''}: ${options.additions}`,
+          options.groundAdditions
+            ? 'When grounded for additions, only use the details provided in the Additions section. Do not infer extra additions.'
+            : 'Use the Additions section as guidance while still keeping the result coherent.'
+        );
+      }
+
+      if (hasOmissions) {
+        instructions.push(
+          `Omissions${options.groundOmissions ? ' (grounded)' : ''}: ${options.omissions}`,
+          options.groundOmissions
+            ? 'When grounded for omissions, only use the details provided in the Omissions section. Do not infer extra omissions.'
+            : 'Use the Omissions section as guidance while still keeping the result coherent.'
+        );
+      }
+
+      if (options.groundAdditions && options.groundOmissions) {
+        instructions.push('Both sections are grounded, so apply only the user-provided instructions from both sections.');
+      }
+    }
+
+    instructions.push(
+      'Output the reorganized text in rich Markdown where appropriate.',
+      'Keep the text faithful to the original while making the structure clearer and cleaner.',
+      'Selected text:',
+      '---',
+      '{text}',
+      '---'
+    );
+
+    return instructions.join('\n\n');
+  };
+
+  const isSmallTouchScreen = () => {
+    if (typeof window === 'undefined') return false;
+    const isSmallScreen = window.innerWidth <= 768;
+    const hasCoarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+    const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    return isSmallScreen && (hasCoarsePointer || hasTouch);
+  };
+
+  const getSelectionBubblePosition = (range: Range) => {
+    const rect = range.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const padding = 12;
+    const bubbleSize = isSmallTouchScreen() ? 52 : 44;
+
+    let x = rect.right + 8;
+    let y = rect.bottom + 8;
+
+    if (isSmallTouchScreen()) {
+      // Keep AI bubble away from selection handles on touch screens by anchoring above selection.
+      const safeVerticalGap = 68;
+      x = rect.left + rect.width / 2 - bubbleSize / 2;
+      y = rect.top - bubbleSize - safeVerticalGap;
+
+      // If there is no space above, move far below handles with extra clearance.
+      if (y < padding) {
+        y = rect.bottom + safeVerticalGap;
+      }
+    }
+
+    if (x + bubbleSize > viewportWidth - padding) {
+      x = viewportWidth - bubbleSize - padding;
+    }
+    if (x < padding) {
+      x = padding;
+    }
+    if (y + bubbleSize > viewportHeight - padding) {
+      y = viewportHeight - bubbleSize - padding;
+    }
+    if (y < padding) {
+      y = padding;
+    }
+
+    return { x, y };
+  };
 
   const parseFontSizeToPt = (value?: string | null): number | null => {
     if (!value) return null;
@@ -460,9 +569,9 @@ export const NoteEditor = forwardRef<NoteEditorHandles, NoteEditorProps>(({ cont
       }
     }
 
-    const fontNodes = Array.from(scope.querySelectorAll?.('font[size="7"]') || []);
+    const fontNodes = Array.from((scope as HTMLElement).querySelectorAll('font[size="7"]')) as HTMLElement[];
     if (fontNodes.length === 0) {
-      Array.from(editorRef.current.querySelectorAll('font[size="7"]')).forEach(node => fontNodes.push(node));
+      Array.from(editorRef.current.querySelectorAll('font[size="7"]')).forEach((node) => fontNodes.push(node as HTMLElement));
     }
 
     fontNodes.forEach(fontNode => {
@@ -556,6 +665,13 @@ export const NoteEditor = forwardRef<NoteEditorHandles, NoteEditorProps>(({ cont
     let prompt = '';
     const selectedText = selectionRef.current ? selectionRef.current.toString().trim() : '';
 
+    if (action === AiAction.ORGANIZE) {
+      if (!selectedText) return;
+      setOrganizeContextText(selectedText);
+      setIsOrganizeModalOpen(true);
+      return;
+    }
+
     const contentBeforeSelection = () => {
         if (!editorRef.current || !selectionRef.current) return '';
         const range = document.createRange();
@@ -636,6 +752,41 @@ ${selectedText}
 - Ensure you process ALL sections and ALL questions from the provided text from start to finish.
 
 **Text to Process:**
+---
+${selectedText}
+---`;
+        break;
+      case AiAction.CAL_DIRECT:
+        prompt = `You are solving mathematics questions from the provided text and images.
+
+**Output Requirements:**
+- Create a main heading: "### CAL Direct".
+- For each math question you find:
+  - Restate the question in **bold**.
+  - Show all relevant calculations and proper mathematical workings in order.
+  - Present the final answer clearly on its own line as **Final Answer:**.
+- Keep the response concise and focused on correct mathematics workings.
+- If information is missing, state what is missing before attempting assumptions.
+
+**Math Questions to Solve:**
+---
+${selectedText}
+---`;
+        break;
+      case AiAction.CAL_EXPLAIN:
+        prompt = `You are solving mathematics questions from the provided text and images with full instructional detail.
+
+**Output Requirements:**
+- Create a main heading: "### CAL Explain".
+- For each math question you find:
+  - Restate the question in **bold**.
+  - Show all calculations and proper mathematical workings step by step.
+  - For every step, include a short explanation of *why* that step is valid.
+  - Present the final answer clearly on its own line as **Final Answer:**.
+- Ensure explanations are clear enough for learning, not just solving.
+- If information is missing, state what is missing before attempting assumptions.
+
+**Math Questions to Solve:**
 ---
 ${selectedText}
 ---`;
@@ -844,7 +995,7 @@ ${selectedText}
   };
 
   // Handle selection button click to show menu
-  const handleSelectionButtonClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleSelectionButtonClick = async (e: React.PointerEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -885,8 +1036,8 @@ ${selectedText}
     const selection = window.getSelection();
     if (selection && !selection.isCollapsed && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0);
-      const rect = range.getBoundingClientRect();
-      setSelectionButton({ visible: true, x: rect.right + 5, y: rect.bottom + 5 });
+      const bubblePos = getSelectionBubblePosition(range);
+      setSelectionButton({ visible: true, x: bubblePos.x, y: bubblePos.y });
     }
     setMenuOpenedFromButton(false);
   };
@@ -894,6 +1045,11 @@ ${selectedText}
   // Detect text selection and show floating button
   useEffect(() => {
     const handleSelectionChange = () => {
+      if (selectionChangeTimeoutRef.current) {
+        window.clearTimeout(selectionChangeTimeoutRef.current);
+      }
+
+      selectionChangeTimeoutRef.current = window.setTimeout(() => {
       const selection = window.getSelection();
       
       if (!editorRef.current || !selection || selection.rangeCount === 0) {
@@ -911,46 +1067,22 @@ ${selectedText}
       if (!selection.isCollapsed && selection.toString().trim().length > 0) {
         // Save selection
         selectionRef.current = range.cloneRange();
-        
-        // Calculate button position at end of selection
-        const rect = range.getBoundingClientRect();
-        let buttonX = rect.right + 5;
-        let buttonY = rect.bottom + 5;
-        
-        // Apply boundary detection for the button
-        const buttonSize = 44; // Approximate button size (p-2 with icon)
-        const padding = 10;
-        const viewportWidth = window.innerWidth;
-        const viewportHeight = window.innerHeight;
-        
-        // Check right boundary
-        if (buttonX + buttonSize > viewportWidth - padding) {
-          buttonX = viewportWidth - buttonSize - padding;
-        }
-        
-        // Check left boundary
-        if (buttonX < padding) {
-          buttonX = padding;
-        }
-        
-        // Check bottom boundary
-        if (buttonY + buttonSize > viewportHeight - padding) {
-          buttonY = viewportHeight - buttonSize - padding;
-        }
-        
-        // Check top boundary
-        if (buttonY < padding) {
-          buttonY = padding;
-        }
-        
-        setSelectionButton({ visible: true, x: buttonX, y: buttonY });
+
+        const bubblePos = getSelectionBubblePosition(range);
+        setSelectionButton({ visible: true, x: bubblePos.x, y: bubblePos.y });
       } else {
         setSelectionButton({ visible: false, x: 0, y: 0 });
       }
+      }, isSmallTouchScreen() ? 80 : 0);
     };
 
     document.addEventListener('selectionchange', handleSelectionChange);
-    return () => document.removeEventListener('selectionchange', handleSelectionChange);
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+      if (selectionChangeTimeoutRef.current) {
+        window.clearTimeout(selectionChangeTimeoutRef.current);
+      }
+    };
   }, []);
 
   const handleFormat = (command: FormatType, value?: string) => {
@@ -1709,8 +1841,8 @@ ${selectedText}
       {/* Floating Selection Button */}
       {selectionButton.visible && (
         <button
-          onMouseDown={handleSelectionButtonClick}
-          className="fixed z-50 p-2 bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-full shadow-2xl transition-all duration-200 transform hover:scale-110 active:scale-95 icon-glossy animate-fade-in-fast cursor-pointer"
+          onPointerDown={handleSelectionButtonClick}
+          className="fixed z-50 p-2.5 sm:p-2 bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-full shadow-2xl transition-all duration-200 transform hover:scale-110 active:scale-95 icon-glossy animate-fade-in-fast cursor-pointer touch-manipulation"
           style={{
             top: selectionButton.y,
             left: selectionButton.x,
@@ -1757,6 +1889,18 @@ ${selectedText}
         contextText={promptContext.text}
         placeholder={promptContext.prefix}
         initialImageSrc={promptImageContext}
+      />
+      <OrganizeOptionsModal
+        isOpen={isOrganizeModalOpen}
+        onClose={() => {
+          setIsOrganizeModalOpen(false);
+          setOrganizeContextText('');
+        }}
+        onSubmit={(options) => {
+          const prompt = buildOrganizePrompt(options);
+          handleAiAction(AiAction.CUSTOM_PROMPT, prompt);
+        }}
+        contextText={organizeContextText}
       />
       <AiPreviewModal
         state={previewState}
