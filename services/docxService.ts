@@ -3,6 +3,65 @@ import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Exte
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 
+type WordListType = 'bullet' | 'number';
+
+interface NumberingLevelDefinition {
+    type: WordListType;
+    style: string;
+    format?: string;
+}
+
+interface ParagraphData {
+    text: string;
+    alignment: string;
+    spacing?: {before?: number, after?: number};
+    fontSize?: string;
+    isList?: boolean;
+    listType?: WordListType;
+    listStyle?: string;
+    listLevel?: number;
+    numId?: string;
+}
+
+const normalizeComparableText = (text: string): string =>
+    text.replace(/\s+/g, ' ').trim().toLowerCase();
+
+const getWordAttr = (element: Element, name: string): string | null =>
+    element.getAttribute(`w:${name}`) || element.getAttribute(name);
+
+const wordNumberFormatToCss = (fmtVal?: string | null): NumberingLevelDefinition => {
+    switch (fmtVal) {
+        case 'bullet':
+            return { type: 'bullet', style: 'disc' };
+        case 'lowerLetter':
+            return { type: 'number', style: 'lower-alpha' };
+        case 'upperLetter':
+            return { type: 'number', style: 'upper-alpha' };
+        case 'lowerRoman':
+            return { type: 'number', style: 'lower-roman' };
+        case 'upperRoman':
+            return { type: 'number', style: 'upper-roman' };
+        case 'decimal':
+        default:
+            return { type: 'number', style: 'decimal' };
+    }
+};
+
+const textMatchesParagraph = (htmlText: string, wordText: string): boolean => {
+    const html = normalizeComparableText(htmlText);
+    const word = normalizeComparableText(wordText);
+    if (!html || !word) return false;
+    if (html === word) return true;
+
+    const minLength = Math.min(html.length, word.length);
+    if (minLength < 24) return false;
+
+    return html.startsWith(word.slice(0, 24)) || word.startsWith(html.slice(0, 24));
+};
+
+const getDirectChild = (element: Element, localName: string): Element | null =>
+    Array.from(element.children).find(child => child.localName === localName || child.tagName === localName) || null;
+
 /**
  * Reads a .docx file and converts it to HTML with proper image and table handling
  */
@@ -88,7 +147,7 @@ const extractAndProcessWithDocx = async (arrayBuffer: ArrayBuffer, baseHtml: str
     const imageDimensions: Array<{width: number, height: number}> = [];
     const textFormatting: Array<{fontSize?: string, alignment?: string, text?: string}> = [];
     const paragraphAlignments: Array<string> = [];
-    let paragraphData: Array<{text: string, alignment: string, spacing?: {before?: number, after?: number}, isList?: boolean, listType?: 'bullet' | 'number', listStyle?: string, listLevel?: number, numId?: string}> = [];
+    let paragraphData: ParagraphData[] = [];
     
     try {
         // Use JSZip to read the DOCX (which is a ZIP file)
@@ -96,7 +155,7 @@ const extractAndProcessWithDocx = async (arrayBuffer: ArrayBuffer, baseHtml: str
         
         // Read the numbering.xml to determine list types AND styles
         const numberingXml = await zip.file('word/numbering.xml')?.async('text');
-        const numberingMap = new Map<string, {type: 'bullet' | 'number', style: string, format?: string}>();
+        const numberingMap = new Map<string, Map<number, NumberingLevelDefinition>>();
         
         if (numberingXml) {
             const parser = new DOMParser();
@@ -104,67 +163,45 @@ const extractAndProcessWithDocx = async (arrayBuffer: ArrayBuffer, baseHtml: str
             
             // First, extract abstract numbering definitions
             const abstractNums = numDoc.querySelectorAll('w\\:abstractNum, abstractNum');
-            const abstractMap = new Map<string, {type: 'bullet' | 'number', style: string, format?: string}>();
+            const abstractMap = new Map<string, Map<number, NumberingLevelDefinition>>();
             
             abstractNums.forEach(abstractNum => {
-                const abstractId = abstractNum.getAttribute('w:abstractNumId') || abstractNum.getAttribute('abstractNumId');
+                const abstractId = getWordAttr(abstractNum, 'abstractNumId');
                 if (!abstractId) return;
                 
-                // Get the first level (level 0) formatting
-                const lvl = abstractNum.querySelector('w\\:lvl[w\\:ilvl="0"], lvl[ilvl="0"]') || 
-                            abstractNum.querySelector('w\\:lvl, lvl');
+                const levelMap = new Map<number, NumberingLevelDefinition>();
+                const levels = abstractNum.querySelectorAll('w\\:lvl, lvl');
                 
-                if (lvl) {
+                levels.forEach(lvl => {
+                    const ilvl = parseInt(getWordAttr(lvl, 'ilvl') || '0', 10);
                     const numFmt = lvl.querySelector('w\\:numFmt, numFmt');
-                    const fmtVal = numFmt?.getAttribute('w:val') || numFmt?.getAttribute('val');
+                    const fmtVal = numFmt ? getWordAttr(numFmt, 'val') : undefined;
                     const lvlText = lvl.querySelector('w\\:lvlText, lvlText');
-                    const lvlTextVal = lvlText?.getAttribute('w:val') || lvlText?.getAttribute('val');
-                    
-                    let type: 'bullet' | 'number' = 'number';
-                    let style = 'decimal';
-                    
-                    // Map Word numbering formats to CSS
-                    if (fmtVal === 'bullet') {
-                        type = 'bullet';
-                        style = 'disc';
-                    } else if (fmtVal === 'decimal') {
-                        type = 'number';
-                        style = 'decimal';
-                    } else if (fmtVal === 'lowerLetter') {
-                        type = 'number';
-                        style = 'lower-alpha';
-                    } else if (fmtVal === 'upperLetter') {
-                        type = 'number';
-                        style = 'upper-alpha';
-                    } else if (fmtVal === 'lowerRoman') {
-                        type = 'number';
-                        style = 'lower-roman';
-                    } else if (fmtVal === 'upperRoman') {
-                        type = 'number';
-                        style = 'upper-roman';
-                    } else {
-                        type = 'number';
-                        style = 'decimal';
-                    }
-                    
-                    abstractMap.set(abstractId, { type, style, format: lvlTextVal || undefined });
-                    console.log(`AbstractNum ${abstractId}: type=${type}, style=${style}, format=${lvlTextVal}`);
+                    const lvlTextVal = lvlText ? getWordAttr(lvlText, 'val') : undefined;
+                    const definition = wordNumberFormatToCss(fmtVal);
+                    definition.format = lvlTextVal || undefined;
+                    levelMap.set(Number.isNaN(ilvl) ? 0 : ilvl, definition);
+                    console.log(`AbstractNum ${abstractId} level ${ilvl}: type=${definition.type}, style=${definition.style}, format=${lvlTextVal}`);
+                });
+                
+                if (levelMap.size > 0) {
+                    abstractMap.set(abstractId, levelMap);
                 }
             });
             
             // Now map actual numbering IDs to abstract definitions
             const nums = numDoc.querySelectorAll('w\\:num, num');
             nums.forEach(num => {
-                const numId = num.getAttribute('w:numId') || num.getAttribute('numId');
+                const numId = getWordAttr(num, 'numId');
                 const abstractNumId = num.querySelector('w\\:abstractNumId, abstractNumId');
                 
                 if (numId && abstractNumId) {
-                    const abstractId = abstractNumId.getAttribute('w:val') || abstractNumId.getAttribute('val');
+                    const abstractId = getWordAttr(abstractNumId, 'val');
                     
                     if (abstractId && abstractMap.has(abstractId)) {
                         const def = abstractMap.get(abstractId)!;
                         numberingMap.set(numId, def);
-                        console.log(`Numbering ${numId} → ${def.type} (${def.style})`);
+                        console.log(`Numbering ${numId} maps ${def.size} levels`);
                     }
                 }
             });
@@ -213,7 +250,7 @@ const extractAndProcessWithDocx = async (arrayBuffer: ArrayBuffer, baseHtml: str
                 let alignment = 'left';
                 
                 if (jcElement) {
-                    const alignVal = jcElement.getAttribute('w:val') || jcElement.getAttribute('val');
+                    const alignVal = getWordAttr(jcElement, 'val');
                     alignment = alignVal || 'left';
                 }
                 
@@ -222,8 +259,8 @@ const extractAndProcessWithDocx = async (arrayBuffer: ArrayBuffer, baseHtml: str
                 let spacing: {before?: number, after?: number} | undefined;
                 
                 if (spacingElement) {
-                    const before = spacingElement.getAttribute('w:before') || spacingElement.getAttribute('before');
-                    const after = spacingElement.getAttribute('w:after') || spacingElement.getAttribute('after');
+                    const before = getWordAttr(spacingElement, 'before');
+                    const after = getWordAttr(spacingElement, 'after');
                     
                     if (before || after) {
                         spacing = {};
@@ -235,7 +272,7 @@ const extractAndProcessWithDocx = async (arrayBuffer: ArrayBuffer, baseHtml: str
                 // Check if this is a list item and get list type
                 const numPr = para.querySelector('w\\:numPr, numPr');
                 let isList = false;
-                let listType: 'bullet' | 'number' | undefined;
+                let listType: WordListType | undefined;
                 let listStyle: string | undefined;
                 let listLevel = 0;
                 let numId: string | undefined;
@@ -246,18 +283,21 @@ const extractAndProcessWithDocx = async (arrayBuffer: ArrayBuffer, baseHtml: str
                     // Get list level
                     const ilvlElement = numPr.querySelector('w\\:ilvl, ilvl');
                     if (ilvlElement) {
-                        const ilvl = ilvlElement.getAttribute('w:val') || ilvlElement.getAttribute('val');
+                        const ilvl = getWordAttr(ilvlElement, 'val');
                         listLevel = ilvl ? parseInt(ilvl) : 0;
                     }
                     
                     // Get numbering ID to determine type and style
                     const numIdElement = numPr.querySelector('w\\:numId, numId');
                     if (numIdElement) {
-                        numId = numIdElement.getAttribute('w:val') || numIdElement.getAttribute('val') || undefined;
+                        numId = getWordAttr(numIdElement, 'val') || undefined;
                         if (numId && numberingMap.has(numId)) {
-                            const numDef = numberingMap.get(numId)!;
-                            listType = numDef.type;
-                            listStyle = numDef.style;
+                            const levelMap = numberingMap.get(numId)!;
+                            const numDef = levelMap.get(listLevel) || levelMap.get(0);
+                            if (numDef) {
+                                listType = numDef.type;
+                                listStyle = numDef.style;
+                            }
                         }
                     }
                 }
@@ -270,6 +310,22 @@ const extractAndProcessWithDocx = async (arrayBuffer: ArrayBuffer, baseHtml: str
                 });
                 paraText = paraText.trim();
                 
+                const paragraphFontSizes: string[] = [];
+                para.querySelectorAll('w\\:r, r').forEach(run => {
+                    const directRunProps = getDirectChild(run, 'rPr');
+                    const szElement = directRunProps?.querySelector('w\\:sz, sz');
+                    if (szElement) {
+                        const halfPoints = getWordAttr(szElement, 'val');
+                        if (halfPoints) {
+                            const points = parseInt(halfPoints, 10) / 2;
+                            if (!Number.isNaN(points)) {
+                                paragraphFontSizes.push(`${points}pt`);
+                            }
+                        }
+                    }
+                });
+                const paragraphFontSize = paragraphFontSizes[0];
+                
                 if (paraText || alignment !== 'left' || isList) {
                     paragraphData.push({ 
                         text: paraText, 
@@ -279,7 +335,8 @@ const extractAndProcessWithDocx = async (arrayBuffer: ArrayBuffer, baseHtml: str
                         listType: listType,
                         listStyle: listStyle,
                         listLevel: listLevel,
-                        numId: numId
+                        numId: numId,
+                        fontSize: paragraphFontSize
                     });
                     
                     if (alignment !== 'left') {
@@ -303,9 +360,10 @@ const extractAndProcessWithDocx = async (arrayBuffer: ArrayBuffer, baseHtml: str
                 const formatting: {fontSize?: string, alignment?: string, text?: string} = {};
                 
                 // Get font size
-                const szElement = run.querySelector('w\\:sz, sz');
+                const directRunProps = getDirectChild(run, 'rPr');
+                const szElement = directRunProps?.querySelector('w\\:sz, sz');
                 if (szElement) {
-                    const halfPoints = szElement.getAttribute('w:val') || szElement.getAttribute('val');
+                    const halfPoints = getWordAttr(szElement, 'val');
                     if (halfPoints) {
                         const points = parseInt(halfPoints) / 2;
                         formatting.fontSize = `${points}pt`;
@@ -341,7 +399,7 @@ const postProcessHtml = (
     imageDimensions: Array<{width: number, height: number}> = [], 
     textFormatting: Array<{fontSize?: string, alignment?: string, text?: string}> = [],
     paragraphAlignments: Array<string> = [],
-    paragraphData: Array<{text: string, alignment: string, spacing?: {before?: number, after?: number}, isList?: boolean, listType?: 'bullet' | 'number', listStyle?: string, listLevel?: number, numId?: string}> = []
+    paragraphData: ParagraphData[] = []
 ): string => {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
@@ -495,7 +553,7 @@ const postProcessHtml = (
     const validListItemTexts = new Set<string>();
     paragraphData.forEach(data => {
         if (data.isList && data.text) {
-            const normalized = data.text.toLowerCase().trim();
+        const normalized = normalizeComparableText(data.text);
             validListItemTexts.add(normalized);
             if (validListItemTexts.size <= 10) {
                 console.log(`  ✓ Valid list item from Word: "${data.text.substring(0, 50)}..."`);
@@ -513,7 +571,7 @@ const postProcessHtml = (
     allListItems.forEach((li, idx) => {
         const htmlLi = li as HTMLElement;
         const text = htmlLi.textContent?.trim() || '';
-        const normalizedText = text.toLowerCase().trim();
+        const normalizedText = normalizeComparableText(text);
         
         // Check if this text was actually a list item in Word
         let isValid = false;
@@ -522,11 +580,11 @@ const postProcessHtml = (
         if (validListItemTexts.has(normalizedText)) {
             isValid = true;
         } else {
-            // Try partial match for longer texts
+            // Try a strict prefix match for longer list items only. This avoids
+            // turning ordinary exam paragraphs into numbered questions.
             for (const validText of validListItemTexts) {
-                if (normalizedText.length >= 15 && validText.length >= 15) {
-                    // Match first 20 characters
-                    if (normalizedText.substring(0, 20) === validText.substring(0, 20)) {
+                if (normalizedText.length >= 32 && validText.length >= 32) {
+                    if (normalizedText.substring(0, 32) === validText.substring(0, 32)) {
                         isValid = true;
                         break;
                     }
@@ -604,10 +662,7 @@ const postProcessHtml = (
             
             // Find matching list data
             for (const data of paragraphData) {
-                if (data.isList && data.text && firstText && (
-                    firstText.toLowerCase().includes(data.text.toLowerCase().substring(0, 15)) ||
-                    data.text.toLowerCase().includes(firstText.toLowerCase().substring(0, 15))
-                )) {
+                if (data.isList && data.text && firstText && textMatchesParagraph(firstText, data.text)) {
                     // Found a match!
                     const shouldBeNumbered = data.listType === 'number';
                     const isNumbered = htmlList.tagName === 'OL';
@@ -711,10 +766,7 @@ const postProcessHtml = (
         
         // Find the numId for this list
         for (const data of paragraphData) {
-            if (data.isList && data.numId && data.text && firstText && (
-                firstText.toLowerCase().includes(data.text.toLowerCase().substring(0, 15)) ||
-                data.text.toLowerCase().includes(firstText.toLowerCase().substring(0, 15))
-            )) {
+            if (data.isList && data.numId && data.text && firstText && textMatchesParagraph(firstText, data.text)) {
                 if (!listsByNumId.has(data.numId)) {
                     listsByNumId.set(data.numId, []);
                 }
@@ -763,8 +815,10 @@ const postProcessHtml = (
     console.log(`Total paragraphs in HTML before conversion: ${doc.querySelectorAll('p').length}`);
     console.log(`List items detected in XML: ${paragraphData.filter(d => d.isList).length}`);
     
-    // Create ordered array of list items from paragraphData
-    const listItems = paragraphData.filter(d => d.isList);
+    // Mammoth already creates Word lists from numbering metadata. Rebuilding
+    // additional lists from loose paragraph text is too risky for exam papers,
+    // where answer lines and question stems often look similar.
+    const listItems: ParagraphData[] = [];
     console.log('\n📋 LIST ITEMS TO MATCH FROM XML:');
     listItems.forEach((item, i) => {
         console.log(`  ${i}: "${item.text.substring(0, 40)}..." (${item.listType})`);
@@ -1020,9 +1074,31 @@ const postProcessHtml = (
         }
     });
     
-    // Apply font sizes to ALL text elements
+    // Apply paragraph-level font sizes in document order. This mirrors how Word
+    // commonly stores exam papers and avoids re-walking nested text nodes, which
+    // previously shifted sizes onto the wrong text.
+    const fontSizedParagraphs = paragraphData.filter(data => data.fontSize && data.text);
+    let fontDataIndex = 0;
+    const blockTextElements = Array.from(doc.querySelectorAll('p, h1, h2, h3, h4, h5, h6, li, td, th')) as HTMLElement[];
+    blockTextElements.forEach(element => {
+        const elementText = element.textContent || '';
+        while (fontDataIndex < fontSizedParagraphs.length) {
+            const data = fontSizedParagraphs[fontDataIndex];
+            fontDataIndex++;
+            if (textMatchesParagraph(elementText, data.text)) {
+                if (data.fontSize && !element.style.fontSize) {
+                    element.style.fontSize = data.fontSize;
+                }
+                break;
+            }
+        }
+    });
+
+    // The old inline pass walked nested elements and could apply the wrong Word
+    // run size to repeated text. Keep it disabled; existing inline font-size
+    // styles are normalized by the editor after insertion.
     let formattingIndex = 0;
-    const allTextElements = doc.querySelectorAll('p, h1, h2, h3, h4, h5, h6, span, strong, em, b, i, li, td, th');
+    const allTextElements = doc.querySelectorAll('__disabled_inline_font_size_import__');
     allTextElements.forEach(elem => {
         const htmlElem = elem as HTMLElement;
         
@@ -1211,7 +1287,7 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
         }
     };
     
-    const getAlignment = (el: HTMLElement): AlignmentType | undefined => {
+    const getAlignment = (el: HTMLElement): (typeof AlignmentType)[keyof typeof AlignmentType] | undefined => {
         const align = el.style.textAlign;
         switch (align) {
             case 'left': return AlignmentType.LEFT;
@@ -1643,5 +1719,3 @@ export const exportAsDocx = async (htmlContent: string, filename: string, fileHa
         throw new Error('Failed to create Word document');
     }
 };
-
-
