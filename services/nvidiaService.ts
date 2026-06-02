@@ -3,15 +3,13 @@ import { GenericChatSession, TranscriptionOption } from '../types';
 
 const NVIDIA_BASE = '/api/nvidia';
 
-export const DEFAULT_NVIDIA_API_KEY =
-  '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';
 export const DEFAULT_NVIDIA_MODEL = 'nvidia/nemotron-3-super-120b-a12b';
 
 const normalizeNvidiaModel = (model: string): string =>
   model.trim().replace(/:free$/i, '');
 
 export const getNvidiaApiKey = (): string =>
-  localStorage.getItem('nvidia_api_key') ?? DEFAULT_NVIDIA_API_KEY;
+  localStorage.getItem('nvidia_api_key') ?? '';
 
 export const getNvidiaModel = (): string =>
   normalizeNvidiaModel(localStorage.getItem('nvidia_model') ?? DEFAULT_NVIDIA_MODEL);
@@ -21,6 +19,14 @@ const buildHeaders = (stream = false) => ({
   'Content-Type': 'application/json',
   Accept: stream ? 'text/event-stream' : 'application/json',
 });
+
+const requireNvidiaApiKey = (): string => {
+  const apiKey = getNvidiaApiKey().trim();
+  if (!apiKey) {
+    throw new Error('Nvidia API key not configured. Please add your Nvidia API key in Settings.');
+  }
+  return apiKey;
+};
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -98,6 +104,7 @@ export const generateText = async (
   images?: { mimeType: string; data: string }[]
 ): Promise<string> => {
   try {
+    requireNvidiaApiKey();
     const content = await buildUserContent(prompt, images);
 
     return await withRetry(async () => {
@@ -139,6 +146,7 @@ class NvidiaChatSession implements GenericChatSession {
     message: string;
     images?: { mimeType: string; data: string }[];
   }): AsyncIterable<string> {
+    requireNvidiaApiKey();
     const userContent = await buildUserContent(params.message, params.images);
     this.history.push({ role: 'user', content: userContent });
 
@@ -285,6 +293,7 @@ export const transcribeFiles = async (
   files: File[],
   option: TranscriptionOption
 ): Promise<{ html: string; errors: { original: string; suggestion: string }[] }> => {
+  requireNvidiaApiKey();
   const prompt = getTranscriptionPrompt(option);
   const fileParts = await Promise.all(files.map(fileToGenerativePart));
   const content = [{ type: 'text', text: prompt }, ...fileParts];

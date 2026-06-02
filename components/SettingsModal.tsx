@@ -4,7 +4,6 @@ import { AiProvider, AutoRouteModelEntry } from '../types';
 import { getActiveProvider, setActiveProvider } from '../services/aiService';
 import { ALL_PROVIDERS, DEFAULT_FALLBACK_CHAIN, ProviderMeta } from '../services/providerRegistry';
 import { getFallbackChain, setFallbackChain } from '../services/autoRouterService';
-import { DEFAULT_NVIDIA_API_KEY, DEFAULT_NVIDIA_MODEL } from '../services/nvidiaService';
 import { fetchAvailableModels, CURATED_MODELS } from '../services/modelFetchingService';
 
 interface SettingsModalProps {
@@ -34,9 +33,6 @@ const loadAllConfigs = (): Record<string, string> => {
   for (const key of ALL_STORAGE_KEYS()) {
     configs[key] = localStorage.getItem(key) ?? '';
   }
-  // Inject defaults for nvidia if empty
-  if (!configs['nvidia_api_key']) configs['nvidia_api_key'] = DEFAULT_NVIDIA_API_KEY;
-  if (!configs['nvidia_model'])   configs['nvidia_model']   = DEFAULT_NVIDIA_MODEL;
   return configs;
 };
 
@@ -379,41 +375,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4" data-modal>
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-md p-0 sm:items-center sm:p-4" data-modal>
+      <div className="bg-white dark:bg-gray-800 rounded-t-2xl sm:rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full sm:max-w-2xl h-[94dvh] sm:h-auto sm:max-h-[92vh] flex flex-col overflow-hidden">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700/50 flex-shrink-0">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Settings</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+        <div className="flex items-start justify-between gap-4 px-4 py-3 sm:px-6 sm:py-4 border-b border-gray-100 dark:border-gray-700/50 flex-shrink-0">
+          <div className="min-w-0">
+            <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-gray-300 dark:bg-gray-600 sm:hidden" />
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">Settings</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-5">
               Configure AI providers · Select one to set as active
             </p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all" aria-label="Close">
+          <button onClick={onClose} className="p-2 rounded-xl text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all flex-shrink-0" aria-label="Close">
             <XIcon className="h-5 w-5" />
           </button>
         </div>
 
         {/* Body: sidebar + panel */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 min-h-0 flex-col overflow-hidden sm:flex-row">
 
           {/* Left Sidebar */}
-          <div className="w-48 flex-shrink-0 border-r border-gray-100 dark:border-gray-700/50 overflow-y-auto">
+          <div className="flex w-full flex-shrink-0 gap-2 overflow-x-auto border-b border-gray-100 dark:border-gray-700/50 px-3 py-2 sm:block sm:w-48 sm:gap-0 sm:overflow-y-auto sm:overflow-x-hidden sm:border-b-0 sm:border-r sm:px-0 sm:py-0">
             {/* Auto entry */}
             <button
               onClick={() => setSelectedPanel('auto')}
-              className={`w-full text-left px-3 py-3 flex items-center gap-2.5 transition-all border-l-2 ${
+              className={`min-w-max rounded-xl px-3 py-2.5 text-left flex items-center gap-2.5 transition-all border sm:w-full sm:min-w-0 sm:rounded-none sm:border-y-0 sm:border-r-0 sm:border-l-2 sm:py-3 ${
                 selectedPanel === 'auto'
-                  ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
-                  : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/40'
+                  ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300'
+                  : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-700/40 sm:border-transparent'
               }`}
             >
               <span className="text-base">⚡</span>
-              <span className="text-sm font-semibold text-gray-900 dark:text-white">Auto Router</span>
+              <span className="text-sm font-semibold">Auto Router</span>
             </button>
 
-            <div className="px-3 py-1.5">
+            <div className="hidden px-3 py-1.5 sm:block">
               <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 dark:text-gray-500">
                 Providers
               </p>
@@ -426,10 +423,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                 <button
                   key={meta.id}
                   onClick={() => setSelectedPanel(meta.id)}
-                  className={`w-full text-left px-3 py-2.5 flex items-center gap-2.5 transition-all border-l-2 ${
+                  className={`min-w-max rounded-xl px-3 py-2.5 text-left flex items-center gap-2.5 transition-all border sm:w-full sm:min-w-0 sm:rounded-none sm:border-y-0 sm:border-r-0 sm:border-l-2 ${
                     active
                       ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20'
-                      : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-700/40'
+                      : 'border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700/40 sm:border-transparent'
                   }`}
                 >
                   <StatusDot ready={ready} />
@@ -442,7 +439,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
           </div>
 
           {/* Right Panel */}
-          <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-5">
 
             {/* ── AUTO PANEL ── */}
             {selectedPanel === 'auto' && (
@@ -493,7 +490,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
                           value={configs['cloudflare_account_id'] ?? ''}
                           onChange={e => setConfig('cloudflare_account_id', e.target.value)}
                           placeholder="e.g. a1b2c3d4e5f6..."
-                          className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 transition-all"
+                          className="w-full min-w-0 px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 transition-all"
                         />
                         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                           Found in your Cloudflare dashboard under Workers &amp; AI.
@@ -516,23 +513,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, i
         </div>
 
         {/* Footer */}
-        <div className="flex flex-col sm:flex-row gap-2 px-6 py-4 border-t border-gray-100 dark:border-gray-700/50 flex-shrink-0">
+        <div className="grid grid-cols-2 gap-2 px-4 py-3 border-t border-gray-100 dark:border-gray-700/50 flex-shrink-0 bg-white dark:bg-gray-800 sm:flex sm:flex-row sm:px-6 sm:py-4">
           <button
             onClick={handleClearAll}
-            className="sm:flex-none px-4 py-2.5 text-sm font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/30 transition-all"
+            className="order-3 col-span-2 sm:order-none sm:flex-none px-4 py-2.5 text-sm font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/30 transition-all"
           >
             Clear All Keys
           </button>
-          <div className="flex-1" />
+          <div className="hidden sm:block sm:flex-1" />
           <button
             onClick={onClose}
-            className="px-4 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+            className="order-2 sm:order-none px-4 py-2.5 text-sm font-semibold text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
-            className="px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl hover:from-indigo-600 hover:to-purple-700 shadow-lg shadow-indigo-500/25 transition-all"
+            className="order-1 sm:order-none px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl hover:from-indigo-600 hover:to-purple-700 shadow-lg shadow-indigo-500/25 transition-all"
           >
             Save &amp; Apply
           </button>
@@ -581,10 +578,10 @@ const AutoPanel: React.FC<{
 
       {/* Chain configurator */}
       <div>
-        <div className="flex items-center gap-2 mb-3">
+        <div className="grid grid-cols-1 gap-2 mb-3 sm:flex sm:items-center">
           <button
             onClick={() => onSort('intelligence')}
-            className={`px-3 py-1.5 text-xs rounded-lg border transition-all ${
+            className={`px-3 py-2 sm:py-1.5 text-xs rounded-lg border transition-all ${
               autoSortMode === 'intelligence'
                 ? 'bg-indigo-100 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300'
                 : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -594,7 +591,7 @@ const AutoPanel: React.FC<{
           </button>
           <button
             onClick={() => onSort('speed')}
-            className={`px-3 py-1.5 text-xs rounded-lg border transition-all ${
+            className={`px-3 py-2 sm:py-1.5 text-xs rounded-lg border transition-all ${
               autoSortMode === 'speed'
                 ? 'bg-indigo-100 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300'
                 : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -604,7 +601,7 @@ const AutoPanel: React.FC<{
           </button>
           <button
             onClick={() => onSort('budget')}
-            className={`px-3 py-1.5 text-xs rounded-lg border transition-all ${
+            className={`px-3 py-2 sm:py-1.5 text-xs rounded-lg border transition-all ${
               autoSortMode === 'budget'
                 ? 'bg-indigo-100 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700 text-indigo-700 dark:text-indigo-300'
                 : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -614,7 +611,7 @@ const AutoPanel: React.FC<{
           </button>
         </div>
 
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex flex-col gap-1 mb-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
             Fallback Model Order
           </p>
@@ -632,7 +629,7 @@ const AutoPanel: React.FC<{
             return (
               <div
                 key={`${entry.provider}:${entry.model}:${index}`}
-                className={`flex items-center gap-3 px-3 py-2 rounded-xl border transition-all ${
+                className={`grid grid-cols-[auto_auto_minmax(0,1fr)_auto_auto] items-center gap-2 px-3 py-2.5 rounded-xl border transition-all sm:flex sm:gap-3 sm:py-2 ${
                   ready && entry.enabled
                     ? 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40 hover:border-gray-300 dark:hover:border-gray-600 shadow-sm'
                     : 'border-dashed border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/20 opacity-50'
@@ -655,22 +652,8 @@ const AutoPanel: React.FC<{
                   </p>
                 </div>
 
-                {/* Badges */}
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  {meta.supportsVision && (
-                    <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-800/40">
-                      vision
-                    </span>
-                  )}
-                  {!ready && (
-                    <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
-                      no key
-                    </span>
-                  )}
-                </div>
-
                 {/* Switch Toggle */}
-                <label className="inline-flex items-center cursor-pointer flex-shrink-0">
+                <label className="inline-flex items-center justify-end cursor-pointer flex-shrink-0">
                   <input
                     type="checkbox"
                     checked={entry.enabled}
@@ -701,6 +684,20 @@ const AutoPanel: React.FC<{
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
+                </div>
+
+                {/* Badges */}
+                <div className="col-span-5 flex flex-wrap items-center gap-1.5 sm:col-span-1 sm:flex-shrink-0">
+                  {meta.supportsVision && (
+                    <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-800/40">
+                      vision
+                    </span>
+                  )}
+                  {!ready && (
+                    <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+                      no key
+                    </span>
+                  )}
                 </div>
               </div>
             );
@@ -748,8 +745,8 @@ const ProviderPanel: React.FC<{
   return (
     <div className="space-y-5">
       <div>
-        <div className="flex items-center gap-3">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white">{meta.label}</h3>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white min-w-0">{meta.label}</h3>
           <Badge tier={meta.pricingBadge} />
           {meta.supportsVision && (
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
@@ -768,10 +765,14 @@ const ProviderPanel: React.FC<{
         <div className="relative">
           <input
             type={showKeys[meta.apiKeyStorageKey] ? 'text' : 'password'}
+            name={`${meta.id}-api-key`}
+            autoComplete="new-password"
+            autoCorrect="off"
+            spellCheck={false}
             value={configs[meta.apiKeyStorageKey] ?? ''}
             onChange={e => onConfig(meta.apiKeyStorageKey, e.target.value)}
             placeholder={meta.keyPlaceholder}
-            className="w-full px-4 py-3 pr-20 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 transition-all"
+            className="w-full min-w-0 px-4 py-3 pr-20 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 transition-all"
           />
           <button
             type="button"
@@ -796,7 +797,7 @@ const ProviderPanel: React.FC<{
       {/* Model Selector */}
       {!noModel && meta.modelStorageKey && (
         <div>
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex flex-col gap-1 mb-2 sm:flex-row sm:items-center sm:justify-between">
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
               Model
             </label>
@@ -814,7 +815,7 @@ const ProviderPanel: React.FC<{
             <select
               value={selectValue}
               onChange={handleSelectChange}
-              className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 transition-all appearance-none cursor-pointer"
+              className="w-full min-w-0 px-4 py-3 pr-10 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 transition-all appearance-none cursor-pointer"
             >
               {modelOptions.map(opt => (
                 <option key={opt} value={opt}>
@@ -838,7 +839,7 @@ const ProviderPanel: React.FC<{
                 value={currentVal}
                 onChange={e => onConfig(meta.modelStorageKey!, e.target.value)}
                 placeholder={`e.g. ${meta.defaultModel}`}
-                className="w-full px-4 py-3 border-2 border-indigo-300 dark:border-indigo-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 transition-all"
+                className="w-full min-w-0 px-4 py-3 border-2 border-indigo-300 dark:border-indigo-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:border-indigo-500 dark:focus:border-indigo-400 transition-all"
               />
               <p className="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
                 Enter any custom model ID supported by this provider.
