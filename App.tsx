@@ -244,7 +244,7 @@ const FormattingToolbar: React.FC<{
     };
 
     return (
-      <div className="flex items-center gap-1 flex-wrap">
+      <div className="flex max-w-full min-w-0 flex-wrap items-center gap-1 overflow-hidden">
         {/* Undo/Redo Controls */}
         <div className="flex items-center gap-0.5 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-1 py-0.5 rounded-md border border-gray-200/50 dark:border-gray-700/50">
           <button
@@ -275,7 +275,7 @@ const FormattingToolbar: React.FC<{
             ref={fontFamilyRef}
             onChange={handleFontFamilyChange}
             value={activeFormats.fontFamily}
-            className="px-2 py-1 text-xs bg-transparent border-none focus:outline-none text-gray-700 dark:text-gray-300 cursor-pointer max-w-[120px] font-semibold"
+            className="max-w-[96px] px-1.5 py-1 text-xs bg-transparent border-none focus:outline-none text-gray-700 dark:text-gray-300 cursor-pointer font-semibold sm:max-w-[120px] sm:px-2"
             title="Font Family"
           >
             <option value="Calibri">Calibri</option>
@@ -302,7 +302,7 @@ const FormattingToolbar: React.FC<{
             ref={fontSizeRef}
             onChange={handleFontSizeChange}
             value={activeFormats.fontSize}
-            className="px-2 py-1 text-xs bg-transparent border-none focus:outline-none text-gray-700 dark:text-gray-300 cursor-pointer font-semibold"
+            className="max-w-[64px] px-1.5 py-1 text-xs bg-transparent border-none focus:outline-none text-gray-700 dark:text-gray-300 cursor-pointer font-semibold sm:px-2"
             title="Font Size (pt)"
           >
             <option value="8pt">8</option>
@@ -455,6 +455,7 @@ const App: React.FC = () => {
 
   const [counts, setCounts] = useState({ words: 0, characters: 0 });
   const [zoomLevel, setZoomLevel] = useState(100);
+  const [isSmallScreen, setIsSmallScreen] = useState(false);
   const [isFindVisible, setIsFindVisible] = useState(false);
   const [searchResults, setSearchResults] = useState<{ total: number; current: number }>({ total: 0, current: 0 });
   
@@ -469,6 +470,14 @@ const App: React.FC = () => {
   const [settingsInitialProvider, setSettingsInitialProvider] = useState<AiProvider | undefined>(undefined);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [pendingExport, setPendingExport] = useState<{ format: 'pdf' | 'html' | 'md' | 'txt' | 'docx'; content: string } | null>(null);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 639px)');
+    const updateScreenSize = () => setIsSmallScreen(mediaQuery.matches);
+    updateScreenSize();
+    mediaQuery.addEventListener('change', updateScreenSize);
+    return () => mediaQuery.removeEventListener('change', updateScreenSize);
+  }, []);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -1376,7 +1385,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-full w-full font-sans text-gray-800 dark:text-gray-200">
+    <div className="flex h-full w-full min-w-0 overflow-x-hidden font-sans text-gray-800 dark:text-gray-200">
       {showLandingPage ? (
         <DocumentLandingPage
           onOpenDocument={handleOpenDocument}
@@ -1389,23 +1398,20 @@ const App: React.FC = () => {
           user={user}
         />
       ) : (
-        <div className="flex-1 flex flex-col relative">
+        <div className="relative flex min-w-0 flex-1 flex-col overflow-x-hidden">
           {/* Modern Header with Two Rows */}
           <header className="sticky top-0 z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-gray-200 dark:border-gray-700/50 shadow-sm">
           {/* First Row: Brand + Action Buttons */}
-          <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 dark:border-gray-800/50">
+          <div className="flex min-w-0 items-center justify-between gap-2 px-2 py-2 sm:px-4 border-b border-gray-100 dark:border-gray-800/50">
             {/* Brand */}
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg">
-                <SparklesIcon className="h-4 w-4 text-white" />
-              </div>
+            <div className="hidden min-w-0 items-center gap-2 sm:flex">
               <h1 className="hidden sm:block text-base font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
                 AI Note Taker
               </h1>
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1">
               {/* Home Button */}
               <button
                 onClick={() => setShowLandingPage(true)}
@@ -1415,7 +1421,7 @@ const App: React.FC = () => {
                 <HomeIcon className="h-4 w-4" />
               </button>
               
-              <div className="w-px h-5 bg-gray-300 dark:bg-gray-600"></div>
+              <div className="hidden w-px h-5 bg-gray-300 dark:bg-gray-600 sm:block"></div>
               
               {/* Document Management – hidden for research tabs */}
               {!isResearchTab && (
@@ -1455,12 +1461,12 @@ const App: React.FC = () => {
                     title="My Research Projects"
                   >
                     <FolderIcon className="h-4 w-4" />
-                    <span className="text-xs font-medium">My Projects</span>
+                    <span className="hidden text-xs font-medium sm:inline">My Projects</span>
                   </button>
                 </div>
               )}
 
-              <div className="w-px h-5 bg-gray-300 dark:bg-gray-600"></div>
+              <div className="hidden w-px h-5 bg-gray-300 dark:bg-gray-600 sm:block"></div>
 
                 {/* Import Word + Find – hidden on research tabs */}
                 {!isResearchTab && (
@@ -1563,16 +1569,18 @@ const App: React.FC = () => {
                 title="Continue last brainstorm session"
               >
                     <BrainIcon className="h-4 w-4" />
-                    <span>Thoughts</span>
+                    <span className="hidden sm:inline">Thoughts</span>
               </button>
             )}
               
-              <div className="w-px h-5 bg-gray-300 dark:bg-gray-600"></div>
+              <div className="hidden w-px h-5 bg-gray-300 dark:bg-gray-600 sm:block"></div>
               
               {/* Authentication */}
               {user ? (
                 <>
-                  <UserProfile onOpenProvider={() => setIsProviderOpen(true)} />
+                  <div className="hidden sm:block">
+                    <UserProfile onOpenProvider={() => setIsProviderOpen(true)} />
+                  </div>
                   {incognitoMode && (
                     <div className="flex items-center gap-1 px-2 py-1 bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-md text-xs font-medium">
                       <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
@@ -1640,7 +1648,7 @@ const App: React.FC = () => {
               projectId={activeTab.researchProjectId}
               userId={user?.uid}
               editorRef={editorRef}
-              zoomLevel={zoomLevel}
+              zoomLevel={isSmallScreen ? 100 : zoomLevel}
               onToggleFind={setIsFindVisible}
               isFindVisible={isFindVisible}
               searchResults={searchResults}
@@ -1654,8 +1662,8 @@ const App: React.FC = () => {
             />
           </div>
         ) : (
-          <main ref={mainContainerRef} className="flex-1 flex flex-col items-center py-8 px-4 overflow-y-auto">
-            <div className="w-full max-w-4xl relative">
+          <main ref={mainContainerRef} className="flex min-w-0 flex-1 flex-col items-center overflow-y-auto overflow-x-hidden px-2 py-3 sm:px-4 sm:py-8">
+            <div className="relative w-full max-w-4xl min-w-0">
               {isFindVisible && (
                 <FindAndReplaceBar
                   onFind={handleFind}
@@ -1669,7 +1677,7 @@ const App: React.FC = () => {
                 content={noteContent}
                 setContent={setNoteContent}
                 scrollContainerRef={mainContainerRef}
-                zoomLevel={zoomLevel}
+                zoomLevel={isSmallScreen ? 100 : zoomLevel}
                 onToggleFind={setIsFindVisible}
                 onOpenHelpMeThink={() => {
                   setIsNewBrainstormSession(true);

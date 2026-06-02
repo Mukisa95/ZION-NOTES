@@ -240,7 +240,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ addTextToNote }) => {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 z-40 p-4 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transform transition-all duration-200 ease-in-out hover:scale-110"
+        className="fixed bottom-[4.75rem] right-4 z-40 p-4 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transform transition-all duration-200 ease-in-out hover:scale-110 sm:bottom-6 sm:right-6"
         title="Open AI Chat"
         aria-label="Open AI Chat"
       >

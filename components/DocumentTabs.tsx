@@ -54,12 +54,12 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
     };
 
     return (
-        <div className="flex items-center gap-0.5 bg-gray-100 dark:bg-gray-800/50 px-2 py-1 border-b border-gray-200 dark:border-gray-700/50 overflow-x-auto">
+        <div className="flex min-w-0 flex-wrap items-center gap-0.5 overflow-x-hidden bg-gray-100 px-2 py-1 dark:bg-gray-800/50 sm:flex-nowrap sm:overflow-x-auto border-b border-gray-200 dark:border-gray-700/50">
             {tabs.map(tab => (
                 <div
                     key={tab.id}
                     onClick={() => !renamingTabId && onTabClick(tab.id)}
-                    className={`group flex items-center gap-2 px-3 py-1.5 rounded-t-lg cursor-pointer transition-all min-w-[120px] max-w-[200px] ${
+                    className={`group flex min-w-0 flex-1 basis-[calc(50%-0.125rem)] items-center gap-2 rounded-t-lg px-2 py-1.5 transition-all sm:min-w-[120px] sm:max-w-[200px] sm:flex-none sm:basis-auto ${
                         tab.id === activeTabId
                             ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-t-2 border-blue-500 shadow-sm'
                             : 'bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -106,7 +106,7 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
             
             <button
                 onClick={onNewTab}
-                className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-all flex-shrink-0"
+                className="shrink-0 rounded-lg p-1.5 text-gray-600 transition-all hover:bg-gray-200 dark:text-gray-400 dark:hover:bg-gray-700"
                 title="New document (Ctrl+T)"
             >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -116,4 +116,3 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
         </div>
     );
 };
-
