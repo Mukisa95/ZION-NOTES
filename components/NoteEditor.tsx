@@ -1796,7 +1796,7 @@ ${selectedText}
   return (
     <>
        <div
-        className={`relative max-w-full min-w-0 overflow-hidden ${flatMode ? 'h-full' : 'bg-white dark:bg-gray-800 rounded-2xl shadow-xl border-2 border-gray-200/80 dark:border-gray-700/80'}`}
+        className={`relative max-w-full min-w-0 overflow-hidden ${flatMode ? 'min-h-full' : 'bg-white dark:bg-gray-800 rounded-2xl shadow-xl border-2 border-gray-200/80 dark:border-gray-700/80'}`}
         style={{ zoom: editorZoom } as React.CSSProperties & { zoom: number }}
       >
         {/* Placeholder Text - Shows when editor is empty */}

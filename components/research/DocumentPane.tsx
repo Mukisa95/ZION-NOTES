@@ -64,6 +64,7 @@ export const DocumentPane: React.FC<DocumentPaneProps> = ({
   onMobileOutlineClose,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const localEditorRef = useRef<NoteEditorHandles>(null);
   const actualEditorRef = editorRef || localEditorRef;
   const [tocHeadings, setTocHeadings] = useState<{ id: string; text: string; level: number }[]>([]);
@@ -354,6 +355,7 @@ export const DocumentPane: React.FC<DocumentPaneProps> = ({
 
         {/* Editor area – hidden on mobile when outline tab is active */}
       <div 
+        ref={scrollContainerRef}
         className={`flex-1 overflow-y-auto relative w-full h-full ${isMobileOutline ? 'hidden md:block' : ''}`}
         onContextMenuCapture={handleContextMenuCapture}
         onPointerDownCapture={handlePointerDownCapture}
@@ -362,12 +364,12 @@ export const DocumentPane: React.FC<DocumentPaneProps> = ({
         onPointerCancelCapture={handlePointerCancelCapture}
         onMouseUpCapture={handleMouseUpCapture}
       >
-        <div className="w-full max-w-4xl mx-auto h-full flex flex-col pt-2 sm:pt-4 px-2 sm:px-4 md:px-6">
+        <div className="w-full max-w-4xl mx-auto min-h-full flex flex-col pt-2 sm:pt-4 px-2 sm:px-4 md:px-6">
             <NoteEditor
                 ref={actualEditorRef}
                 content={content}
                 setContent={onChange}
-                scrollContainerRef={containerRef}
+                scrollContainerRef={scrollContainerRef}
                 zoomLevel={zoomLevel}
                 onToggleFind={onToggleFind}
                 currentDocumentId={activeDocumentId}
