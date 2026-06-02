@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { NoteEditor } from './components/NoteEditor';
 import { ChatWindow } from './components/ChatSidebar';
-import { SparklesIcon, BoldIcon, ItalicIcon, TrashIcon, BrainIcon, TextColorIcon, AlignLeftIcon, AlignCenterIcon, AlignRightIcon, AlignJustifyIcon, SuperscriptIcon, SubscriptIcon, SearchIcon, ExportIcon, PdfIcon, WordIcon, UploadIcon, SettingsIcon, BulletListIcon, NumberListIcon, ChevronDownIcon, SaveIcon, FolderIcon, DocumentIcon, CloudIcon, HomeIcon, UndoIcon, RedoIcon, TableIcon, TableOfContentsIcon } from './components/icons';
+import { SparklesIcon, BoldIcon, ItalicIcon, TrashIcon, BrainIcon, TextColorIcon, AlignLeftIcon, AlignCenterIcon, AlignRightIcon, AlignJustifyIcon, SuperscriptIcon, SubscriptIcon, ExportIcon, PdfIcon, WordIcon, UploadIcon, SettingsIcon, BulletListIcon, NumberListIcon, ChevronDownIcon, SaveIcon, FolderIcon, DocumentIcon, CloudIcon, HomeIcon, UndoIcon, RedoIcon, TableIcon, TableOfContentsIcon, FindIcon, TranscribeIcon } from './components/icons';
 import { ListStylePicker } from './components/ListStylePicker';
 import { AlignmentPicker } from './components/AlignmentPicker';
 import { markdownToHtml } from './utils/markdown';
@@ -244,9 +244,9 @@ const FormattingToolbar: React.FC<{
     };
 
     return (
-      <div className="flex max-w-full min-w-0 flex-wrap items-center gap-1 overflow-hidden">
+      <div className="flex max-w-full min-w-0 items-center gap-1 overflow-x-auto overflow-y-hidden px-1 py-1 sm:flex-wrap sm:overflow-hidden sm:px-0 sm:py-0">
         {/* Undo/Redo Controls */}
-        <div className="flex items-center gap-0.5 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-1 py-0.5 rounded-md border border-gray-200/50 dark:border-gray-700/50">
+        <div className="flex shrink-0 items-center gap-0.5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm px-1 py-0.5 rounded-lg border border-gray-200/60 dark:border-gray-700/60 shadow-sm sm:rounded-md sm:shadow-none">
           <button
             onMouseDown={(e) => { 
               e.preventDefault(); 
@@ -270,7 +270,7 @@ const FormattingToolbar: React.FC<{
         </div>
 
         {/* Font Controls */}
-        <div className="flex items-center gap-0.5 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-1 py-0.5 rounded-md border border-gray-200/50 dark:border-gray-700/50">
+        <div className="flex shrink-0 items-center gap-0.5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm px-1 py-0.5 rounded-lg border border-gray-200/60 dark:border-gray-700/60 shadow-sm sm:rounded-md sm:shadow-none">
           <select
             ref={fontFamilyRef}
             onChange={handleFontFamilyChange}
@@ -325,7 +325,7 @@ const FormattingToolbar: React.FC<{
           </select>
         </div>
 
-        <div className="flex items-center gap-0.5 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-1 py-0.5 rounded-md border border-gray-200/50 dark:border-gray-700/50">
+        <div className="flex shrink-0 items-center gap-0.5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm px-1 py-0.5 rounded-lg border border-gray-200/60 dark:border-gray-700/60 shadow-sm sm:rounded-md sm:shadow-none">
           <button 
             onMouseDown={(e) => { e.preventDefault(); onFormat('bold'); }} 
             className={`p-1.5 rounded transition-all ${
@@ -358,7 +358,7 @@ const FormattingToolbar: React.FC<{
 
         {/* Selection Menu Button - only show when text is selected */}
         {hasSelection && onOpenSelectionMenu && (
-          <div className="flex items-center gap-0.5 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-1 py-0.5 rounded-md border border-gray-200/50 dark:border-gray-700/50">
+          <div className="flex shrink-0 items-center gap-0.5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm px-1 py-0.5 rounded-lg border border-gray-200/60 dark:border-gray-700/60 shadow-sm sm:rounded-md sm:shadow-none">
             <button 
               onClick={onOpenSelectionMenu}
               className="p-1.5 rounded text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 transition-all"
@@ -369,7 +369,7 @@ const FormattingToolbar: React.FC<{
           </div>
         )}
         
-        <div className="flex items-center gap-0.5 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-1 py-0.5 rounded-md border border-gray-200/50 dark:border-gray-700/50">
+        <div className="flex shrink-0 items-center gap-0.5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm px-1 py-0.5 rounded-lg border border-gray-200/60 dark:border-gray-700/60 shadow-sm sm:rounded-md sm:shadow-none">
           <AlignmentPicker
             onSelect={(alignment) => onFormat(alignment)}
             currentAlignment={
@@ -382,7 +382,7 @@ const FormattingToolbar: React.FC<{
           />
         </div>
 
-        <div className="flex items-center gap-0.5 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-1 py-0.5 rounded-md border border-gray-200/50 dark:border-gray-700/50">
+        <div className="flex shrink-0 items-center gap-0.5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm px-1 py-0.5 rounded-lg border border-gray-200/60 dark:border-gray-700/60 shadow-sm sm:rounded-md sm:shadow-none">
           <button 
             onMouseDown={(e) => { e.preventDefault(); onFormat('superscript'); }} 
             className={`p-1.5 rounded transition-all ${
@@ -407,7 +407,7 @@ const FormattingToolbar: React.FC<{
         </button>
         </div>
 
-        <div className="flex items-center gap-0.5 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-1 py-0.5 rounded-md border border-gray-200/50 dark:border-gray-700/50">
+        <div className="flex shrink-0 items-center gap-0.5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm px-1 py-0.5 rounded-lg border border-gray-200/60 dark:border-gray-700/60 shadow-sm sm:rounded-md sm:shadow-none">
           <ListStylePicker
             type="bullet"
             onSelect={(style) => onInsertList('ul', style)}
@@ -422,7 +422,7 @@ const FormattingToolbar: React.FC<{
           />
         </div>
 
-        <div className="flex items-center gap-0.5 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-1 py-0.5 rounded-md border border-gray-200/50 dark:border-gray-700/50">
+        <div className="flex shrink-0 items-center gap-0.5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm px-1 py-0.5 rounded-lg border border-gray-200/60 dark:border-gray-700/60 shadow-sm sm:rounded-md sm:shadow-none">
           <button
             onMouseDown={(e) => {
               e.preventDefault();
@@ -435,7 +435,7 @@ const FormattingToolbar: React.FC<{
           </button>
         </div>
 
-        <button onMouseDown={(e) => { e.preventDefault(); onClear(); }} className="p-1.5 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-red-200/50 dark:border-red-700/50" title="Clear Note">
+        <button onMouseDown={(e) => { e.preventDefault(); onClear(); }} className="shrink-0 p-1.5 rounded-lg sm:rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-red-200/60 dark:border-red-700/60 shadow-sm sm:shadow-none" title="Clear Note">
           <TrashIcon className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -462,6 +462,8 @@ const App: React.FC = () => {
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [selectedContentForExport, setSelectedContentForExport] = useState<string | null>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+  const [isToolsMenuOpen, setIsToolsMenuOpen] = useState(false);
+  const toolsMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingInsertion, setPendingInsertion] = useState<{ documentId: string; content: string } | null>(null);
   // Table feature removed
@@ -526,6 +528,7 @@ const App: React.FC = () => {
   const noteContent = activeTab?.content || '<p><br></p>';
 
   useClickOutside(exportMenuRef, () => setIsExportMenuOpen(false));
+  useClickOutside(toolsMenuRef, () => setIsToolsMenuOpen(false));
 
   useEffect(() => {
     const newCounts = getCountsFromHtml(noteContent);
@@ -1419,7 +1422,7 @@ const App: React.FC = () => {
           {/* Modern Header with Two Rows */}
           <header className="z-30 shrink-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-gray-200 dark:border-gray-700/50 shadow-sm">
           {/* First Row: Brand + Action Buttons */}
-          <div className="flex min-w-0 items-center justify-between gap-2 px-2 py-2 sm:px-4 border-b border-gray-100 dark:border-gray-800/50">
+          <div className="flex min-w-0 items-center justify-center gap-2 px-2 py-2 sm:justify-between sm:px-4 border-b border-gray-100 dark:border-gray-800/50">
             {/* Brand */}
             <div className="hidden min-w-0 items-center gap-2 sm:flex">
               <h1 className="hidden sm:block text-base font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
@@ -1428,205 +1431,325 @@ const App: React.FC = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1 sm:flex-nowrap">
-              {/* Home Button */}
-              <button
-                onClick={() => setShowLandingPage(true)}
-                className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all"
-                title="Home - Return to documents"
-              >
-                <HomeIcon className="h-4 w-4" />
-              </button>
-              
-              <div className="hidden w-px h-5 bg-gray-300 dark:bg-gray-600 sm:block"></div>
-              
-              {/* Document Management – hidden for research tabs */}
-              {!isResearchTab && (
-                <div className="flex items-center gap-0.5 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-1 py-0.5 rounded-md border border-gray-200/50 dark:border-gray-700/50">
-                  <button
-                    onClick={() => setIsSaveDocumentDialogOpen(true)}
-                    className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all"
-                    title="Save document locally"
-                  >
-                    <SaveIcon className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => setIsDocumentLibraryOpen(true)}
-                    className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all"
-                    title="My Documents"
-                  >
-                    <FolderIcon className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
+            <div className="flex min-w-0 flex-1 flex-wrap items-center justify-center gap-1.5 sm:flex-nowrap sm:justify-end">
 
-              {/* My Projects – shown only on research tabs */}
-              {isResearchTab && (
-                <div className="flex items-center gap-0.5 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm px-1 py-0.5 rounded-md border border-gray-200/50 dark:border-gray-700/50">
-                  <button
-                    onClick={async () => {
-                      setMyProjectsLoading(true);
-                      setIsMyProjectsOpen(true);
-                      try {
-                        const { getAllResearchProjectsFromFirestore } = await import('./services/researchFirestoreService');
-                        const projects = await getAllResearchProjectsFromFirestore(user?.uid || '');
-                        setMyProjects(projects);
-                      } catch (e) { console.error(e); }
-                      setMyProjectsLoading(false);
-                    }}
-                    className="p-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-all flex items-center gap-1.5 px-2"
-                    title="My Research Projects"
-                  >
-                    <FolderIcon className="h-4 w-4" />
-                    <span className="hidden text-xs font-medium sm:inline">My Projects</span>
-                  </button>
-                </div>
-              )}
-
-              <div className="hidden w-px h-5 bg-gray-300 dark:bg-gray-600 sm:block"></div>
-
-                {/* Import Word + Find – hidden on research tabs */}
-                {!isResearchTab && (
-                  <>
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleOpenWordDocument}
-                  accept=".docx"
-                  className="hidden"
-                />
+              {/* Group 1: Workspace Navigation & Outline — hidden on small screens (available in bottom bar / Tools menu) */}
+              <div className="hidden lg:flex items-center gap-0.5 bg-gray-50/95 dark:bg-gray-800/90 backdrop-blur-md p-0.5 rounded-lg border border-gray-200/60 dark:border-gray-700/40 shadow-sm">
                 <button
-                  onClick={handleOpenClick}
-                  className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all"
-                  title="Import Word document"
+                  onClick={() => setShowLandingPage(true)}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all hover:scale-105 active:scale-95 duration-150"
+                  title="Home - Return to documents"
                 >
-                  <UploadIcon className="h-4 w-4" />
+                  <HomeIcon className="h-3.5 w-3.5" />
+                  <span className="text-xs font-semibold">Home</span>
                 </button>
-             <button
-                onClick={() => {
-                  setIsFindVisible(true);
-                  setTimeout(() => editorRef.current?.focus(), 0);
-                }}
-                  className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all"
-                title="Find text (Ctrl+F)"
-              >
-                  <SearchIcon className="h-4 w-4" />
-              </button>
-                  </>
-                )}
-               {/* Transcribe button – hidden on research tabs */}
-              {!isResearchTab && (
-              <button
-                onClick={() => setIsTranscriptionOpen(true)}
-                className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all"
-                title="Transcribe files"
-              >
-                <DocumentIcon className="h-4 w-4" />
-              </button>
-              )}
-              {/* Table of Contents – always visible; on research tabs it triggers the research TOC */}
-              <button
-                onClick={() => {
-                  if (isResearchTab) {
-                    setIsResearchTocOpen(prev => !prev);
-                  } else {
-                    setIsTableOfContentsOpen(true);
-                  }
-                }}
-                className={`p-1.5 rounded-md transition-all ${
-                  isResearchTab
-                    ? 'text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
-                    : 'text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400'
-                }`}
-                title={isResearchTab ? 'Document Outline' : 'Table of Contents'}
-              >
-                <TableOfContentsIcon className="h-4 w-4" />
-              </button>
-            <div className="relative" ref={exportMenuRef}>
-                 <button
-                    onClick={handleToggleExportMenu}
-                    className="p-1.5 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all"
-                    title="Export note"
-                  >
-                    <ExportIcon className="h-4 w-4" />
-                  </button>
-                {isExportMenuOpen && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-40 animate-fade-in-fast">
-                      <div className="p-1.5 space-y-0.5">
-                        <button onClick={() => handleExport('pdf')} className="w-full flex items-center px-2.5 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-all">
-                          <PdfIcon className="h-4 w-4 mr-2.5 text-red-500" />
-                          <span>{selectedContentForExport ? 'Selection → PDF' : 'Save as PDF'}</span>
-                        </button>
-                        <button onClick={() => handleExport('docx')} className="w-full flex items-center px-2.5 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-all">
-                          <WordIcon className="h-4 w-4 mr-2.5 text-blue-500" />
-                          <span>{selectedContentForExport ? 'Selection → Word' : 'Save as Word'}</span>
-                                </button>
-                        <div className="my-1 border-t border-gray-200 dark:border-gray-700"></div>
-                        <button onClick={() => handleExport('html')} className="w-full text-left px-2.5 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-all">
-                          {selectedContentForExport ? 'Selection → HTML' : 'Save as HTML'}
-                                </button>
-                        <button onClick={() => handleExport('md')} className="w-full text-left px-2.5 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-all">
-                          {selectedContentForExport ? 'Selection → MD' : 'Save as Markdown'}
-                                </button>
-                        <button onClick={() => handleExport('txt')} className="w-full text-left px-2.5 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-all">
-                          {selectedContentForExport ? 'Selection → TXT' : 'Save as Text'}
-                                </button>
-                      </div>
-                    </div>
-                )}
-            </div>
-                
-            {lastBrainstorm && (
-              <button
-                onClick={() => {
-                  setIsNewBrainstormSession(false);
-                  setIsHelpMeThinkModalOpen(true);
-                }}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 rounded-md hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-all"
-                title="Continue last brainstorm session"
-              >
-                    <BrainIcon className="h-4 w-4" />
-                    <span className="hidden sm:inline">Thoughts</span>
-              </button>
-            )}
-              
-              <div className="hidden w-px h-5 bg-gray-300 dark:bg-gray-600 sm:block"></div>
-              
-              {/* Authentication */}
-              {user ? (
+
+                <button
+                  onClick={() => {
+                    if (isResearchTab) {
+                      setIsResearchTocOpen(prev => !prev);
+                    } else {
+                      setIsTableOfContentsOpen(true);
+                    }
+                  }}
+                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-md transition-all hover:scale-105 active:scale-95 duration-150 ${
+                    isResearchTab
+                      ? 'text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40'
+                      : 'text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-400'
+                  }`}
+                  title={isResearchTab ? 'Document Outline' : 'Table of Contents'}
+                >
+                  <TableOfContentsIcon className="h-3.5 w-3.5" />
+                  <span className="text-xs font-semibold">Outline</span>
+                </button>
+              </div>
+
+              {/* hidden file input always present */}
+              <input type="file" ref={fileInputRef} onChange={handleOpenWordDocument} accept=".docx" className="hidden" />
+
+              {/* ── Tools group ── */}
+              {!isResearchTab ? (
                 <>
-                  <div className="hidden sm:block">
-                    <UserProfile onOpenProvider={() => setIsProviderOpen(true)} />
+                  {/* SMALL/MEDIUM: Single "Tools" button → popup */}
+                  <div className="relative lg:hidden" ref={toolsMenuRef}>
+                    <button
+                      onClick={() => setIsToolsMenuOpen(prev => !prev)}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-all hover:scale-105 active:scale-95 duration-150 ${
+                        isToolsMenuOpen
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/30'
+                          : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 dark:hover:border-blue-700 shadow-sm'
+                      }`}
+                      title="Document Tools"
+                    >
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                      </svg>
+                      Tools
+                      <svg className={`h-3 w-3 transition-transform duration-150 ${isToolsMenuOpen ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+
+                    {isToolsMenuOpen && (
+                      <div className="absolute left-0 top-full mt-2 z-50 w-72 overflow-hidden rounded-2xl border border-gray-200/80 dark:border-gray-700/80 bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl shadow-2xl shadow-black/15 dark:shadow-black/40 animate-fade-in-fast">
+                        {/* Header */}
+                        <div className="px-4 pt-3.5 pb-2 border-b border-gray-100 dark:border-gray-800">
+                          <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Document Tools</p>
+                        </div>
+                        <div className="p-2 grid grid-cols-2 gap-1.5">
+                          {/* Save */}
+                          <button
+                            onClick={() => { setIsSaveDocumentDialogOpen(true); setIsToolsMenuOpen(false); }}
+                            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-700 dark:hover:text-blue-300 transition-all group"
+                          >
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-all">
+                              <SaveIcon className="h-4 w-4" />
+                            </span>
+                            <div>
+                              <p className="text-xs font-semibold">Save</p>
+                              <p className="text-[10px] text-gray-400 dark:text-gray-500">Save locally</p>
+                            </div>
+                          </button>
+                          {/* Library */}
+                          <button
+                            onClick={() => { setIsDocumentLibraryOpen(true); setIsToolsMenuOpen(false); }}
+                            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-700 dark:hover:text-blue-300 transition-all group"
+                          >
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all">
+                              <FolderIcon className="h-4 w-4" />
+                            </span>
+                            <div>
+                              <p className="text-xs font-semibold">Library</p>
+                              <p className="text-[10px] text-gray-400 dark:text-gray-500">My documents</p>
+                            </div>
+                          </button>
+                          {/* Import Word */}
+                          <button
+                            onClick={() => { handleOpenClick(); setIsToolsMenuOpen(false); }}
+                            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-700 dark:hover:text-blue-300 transition-all group"
+                          >
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400 group-hover:bg-sky-500 group-hover:text-white transition-all">
+                              <UploadIcon className="h-4 w-4" />
+                            </span>
+                            <div>
+                              <p className="text-xs font-semibold">Import</p>
+                              <p className="text-[10px] text-gray-400 dark:text-gray-500">Word document</p>
+                            </div>
+                          </button>
+                          {/* Table of Contents */}
+                          <button
+                            onClick={() => { setIsTableOfContentsOpen(true); setIsToolsMenuOpen(false); }}
+                            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-700 dark:hover:text-blue-300 transition-all group"
+                          >
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-950/50 text-violet-600 dark:text-violet-400 group-hover:bg-violet-500 group-hover:text-white transition-all">
+                              <TableOfContentsIcon className="h-4 w-4" />
+                            </span>
+                            <div>
+                              <p className="text-xs font-semibold">Contents</p>
+                              <p className="text-[10px] text-gray-400 dark:text-gray-500">Table of contents</p>
+                            </div>
+                          </button>
+                          {/* Find */}
+                          <button
+                            onClick={() => { setIsFindVisible(true); setIsToolsMenuOpen(false); setTimeout(() => editorRef.current?.focus(), 0); }}
+                            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-700 dark:hover:text-blue-300 transition-all group"
+                          >
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-950/50 text-orange-600 dark:text-orange-400 group-hover:bg-orange-500 group-hover:text-white transition-all">
+                              <FindIcon className="h-4 w-4" />
+                            </span>
+                            <div>
+                              <p className="text-xs font-semibold">Find</p>
+                              <p className="text-[10px] text-gray-400 dark:text-gray-500">Search in note</p>
+                            </div>
+                          </button>
+                          {/* Transcribe */}
+                          <button
+                            onClick={() => { setIsTranscriptionOpen(true); setIsToolsMenuOpen(false); }}
+                            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-700 dark:hover:text-blue-300 transition-all group"
+                          >
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-pink-100 dark:bg-pink-950/50 text-pink-600 dark:text-pink-400 group-hover:bg-pink-500 group-hover:text-white transition-all">
+                              <TranscribeIcon className="h-4 w-4" />
+                            </span>
+                            <div>
+                              <p className="text-xs font-semibold">Transcribe</p>
+                              <p className="text-[10px] text-gray-400 dark:text-gray-500">Audio to text</p>
+                            </div>
+                          </button>
+                        </div>
+                        {/* Export section */}
+                        <div className="border-t border-gray-100 dark:border-gray-800 px-2 pb-2 pt-1.5">
+                          <p className="px-3 pb-1 text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Export As</p>
+                          <div className="flex flex-wrap gap-1">
+                            {(['pdf','docx','html','md','txt'] as const).map((fmt) => (
+                              <button
+                                key={fmt}
+                                onClick={() => { handleExport(fmt); setIsToolsMenuOpen(false); }}
+                                className="flex-1 min-w-[52px] px-2 py-1.5 text-[11px] font-semibold rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 dark:hover:text-white transition-all uppercase"
+                              >
+                                {fmt}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  {incognitoMode && (
-                    <div className="flex items-center gap-1 px-2 py-1 bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-md text-xs font-medium">
-                      <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                      <span className="hidden sm:inline">Incognito</span>
+
+                  {/* LARGE screens: all tools shown inline with labels */}
+                  <div className="hidden lg:flex items-center gap-0.5 bg-gray-50/95 dark:bg-gray-800/90 backdrop-blur-md p-0.5 rounded-lg border border-gray-200/60 dark:border-gray-700/40 shadow-sm">
+                    <button
+                      onClick={() => setIsSaveDocumentDialogOpen(true)}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all hover:scale-105 active:scale-95 duration-150"
+                      title="Save document locally"
+                    >
+                      <SaveIcon className="h-3.5 w-3.5" />
+                      <span className="text-xs font-semibold">Save</span>
+                    </button>
+                    <button
+                      onClick={() => setIsDocumentLibraryOpen(true)}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all hover:scale-105 active:scale-95 duration-150"
+                      title="My Documents"
+                    >
+                      <FolderIcon className="h-3.5 w-3.5" />
+                      <span className="text-xs font-semibold">Library</span>
+                    </button>
+                    <button
+                      onClick={handleOpenClick}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all hover:scale-105 active:scale-95 duration-150"
+                      title="Import Word document"
+                    >
+                      <UploadIcon className="h-3.5 w-3.5" />
+                      <span className="text-xs font-semibold">Import Word</span>
+                    </button>
+                    <div className="relative" ref={exportMenuRef}>
+                      <button
+                        onClick={handleToggleExportMenu}
+                        className="inline-flex items-center gap-1 px-2 py-1 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all hover:scale-105 active:scale-95 duration-150"
+                        title="Export note"
+                      >
+                        <ExportIcon className="h-3.5 w-3.5" />
+                        <span className="text-xs font-semibold">Export</span>
+                        <svg className={`h-3 w-3 transition-transform duration-150 ${isExportMenuOpen ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                      </button>
+                      {isExportMenuOpen && (
+                        <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden z-40 animate-fade-in-fast">
+                          <div className="p-1.5 space-y-0.5">
+                            <button onClick={() => handleExport('pdf')} className="w-full flex items-center px-2.5 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all">
+                              <PdfIcon className="h-4 w-4 mr-2.5 text-red-500" />
+                              <span>{selectedContentForExport ? 'Selection → PDF' : 'Save as PDF'}</span>
+                            </button>
+                            <button onClick={() => handleExport('docx')} className="w-full flex items-center px-2.5 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all">
+                              <WordIcon className="h-4 w-4 mr-2.5 text-blue-500" />
+                              <span>{selectedContentForExport ? 'Selection → Word' : 'Save as Word'}</span>
+                            </button>
+                            <div className="my-1 border-t border-gray-200 dark:border-gray-700"></div>
+                            {(['html','md','txt'] as const).map((fmt) => (
+                              <button key={fmt} onClick={() => handleExport(fmt)} className="w-full text-left px-2.5 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-all uppercase font-medium">
+                                {selectedContentForExport ? `Selection → ${fmt.toUpperCase()}` : `Save as ${fmt.toUpperCase()}`}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )}
+                    <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-0.5"></div>
+                    <button
+                      onClick={() => { setIsTableOfContentsOpen(true); }}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all hover:scale-105 active:scale-95 duration-150"
+                      title="Table of Contents"
+                    >
+                      <TableOfContentsIcon className="h-3.5 w-3.5" />
+                      <span className="text-xs font-semibold">Contents</span>
+                    </button>
+                    <button
+                      onClick={() => { setIsFindVisible(true); setTimeout(() => editorRef.current?.focus(), 0); }}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all hover:scale-105 active:scale-95 duration-150"
+                      title="Find text (Ctrl+F)"
+                    >
+                      <FindIcon className="h-3.5 w-3.5" />
+                      <span className="text-xs font-semibold">Find</span>
+                    </button>
+                    <button
+                      onClick={() => setIsTranscriptionOpen(true)}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all hover:scale-105 active:scale-95 duration-150"
+                      title="Transcribe audio/video to text"
+                    >
+                      <TranscribeIcon className="h-3.5 w-3.5" />
+                      <span className="text-xs font-semibold">Transcribe</span>
+                    </button>
+                  </div>
                 </>
               ) : (
-                <>
-                  <button
-                    onClick={() => setIsProviderOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all"
-                    title="Provider"
-                  >
-                    <SettingsIcon className="h-4 w-4" />
-                    <span className="hidden sm:inline">Provider</span>
-                  </button>
-                  <button
-                    onClick={() => setIsAuthModalOpen(true)}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white text-sm font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
-                    title="Sign in to sync documents"
-                  >
-                    <CloudIcon className="h-4 w-4" />
-                    <span className="hidden sm:inline">Sign In</span>
-                  </button>
-                </>
+                /* Research tab: My Projects button */
+                <button
+                  onClick={async () => {
+                    setMyProjectsLoading(true);
+                    setIsMyProjectsOpen(true);
+                    try {
+                      const { getAllResearchProjectsFromFirestore } = await import('./services/researchFirestoreService');
+                      const projects = await getAllResearchProjectsFromFirestore(user?.uid || '');
+                      setMyProjects(projects);
+                    } catch (e) { console.error(e); }
+                    setMyProjectsLoading(false);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg border border-indigo-200 dark:border-indigo-800 text-xs font-semibold transition-all hover:scale-105 active:scale-95 duration-150 shadow-sm"
+                  title="My Research Projects"
+                >
+                  <FolderIcon className="h-4 w-4" />
+                  <span>My Projects</span>
+                </button>
               )}
+
+              {/* Group 4: AI Thoughts */}
+              {lastBrainstorm && (
+                <div className="flex items-center p-0.5 bg-gray-50/95 dark:bg-gray-800/90 backdrop-blur-md rounded-lg border border-gray-200/60 dark:border-gray-700/40 shadow-sm">
+                  <button
+                    onClick={() => {
+                      setIsNewBrainstormSession(false);
+                      setIsHelpMeThinkModalOpen(true);
+                    }}
+                    className="flex items-center gap-1 px-2 py-1 text-xs font-semibold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 rounded-md hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-all hover:scale-105 active:scale-95 duration-150"
+                    title="Continue last brainstorm session"
+                  >
+                    <BrainIcon className="h-4 w-4" />
+                    <span>Thoughts</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Group 5: Settings & Sync — hidden on small screens (user avatar lives in bottom bar) */}
+              <div className="hidden lg:flex items-center gap-0.5 bg-gray-50/95 dark:bg-gray-800/90 backdrop-blur-md p-0.5 rounded-lg border border-gray-200/60 dark:border-gray-700/40 shadow-sm">
+                {user ? (
+                  <>
+                    <UserProfile onOpenProvider={() => setIsProviderOpen(true)} />
+                    {incognitoMode && (
+                      <div className="flex items-center gap-1 px-1.5 py-1 bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-md text-[10px] font-semibold">
+                        <div className="w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
+                        <span className="hidden sm:inline">Incognito</span>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setIsProviderOpen(true)}
+                      className="inline-flex items-center gap-1 px-2 py-1 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all hover:scale-105 active:scale-95 duration-150"
+                      title="Provider Settings"
+                    >
+                      <SettingsIcon className="h-3.5 w-3.5" />
+                      <span className="text-xs font-semibold">Provider</span>
+                    </button>
+                    <button
+                      onClick={() => setIsAuthModalOpen(true)}
+                      className="flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white text-xs font-semibold rounded-md shadow hover:shadow-md transition-all duration-150 hover:scale-105 active:scale-95"
+                      title="Sign in to sync documents"
+                    >
+                      <CloudIcon className="h-4 w-4" />
+                      <span>Sign In</span>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
+          </div>
           
           {/* Second Row: Document Tabs */}
           <DocumentTabs
@@ -1641,7 +1764,7 @@ const App: React.FC = () => {
 
           {/* Third Row: Formatting Toolbar – hidden on research tabs */}
           {!isResearchTab && (
-            <div className="px-2 py-2 sm:px-4">
+            <div className="px-1 py-1.5 sm:px-4 sm:py-2">
               <FormattingToolbar
                 onFormat={(type, value) => editorRef.current?.format(type, value)}
                 onClear={() => editorRef.current?.clear()}
@@ -1743,6 +1866,7 @@ const App: React.FC = () => {
             onZoomOut={() => setZoomLevel(z => Math.max(50, z - 10))}
             onSetZoom={setZoomLevel}
             onClickProvider={() => setIsProviderOpen(true)}
+            onHome={() => setShowLandingPage(true)}
         />
         
         {/* Compression Indicator */}
