@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { ContextMenuState, AiAction, AiPreviewState, FormatType, NoteEditorHandles } from '../types';
-import { generateText } from '../services/aiService';
+import { generateText, getCurrentModelRouteInfo } from '../services/aiService';
 import { PromptModal } from './PromptModal';
 import { AiPreviewModal } from './AiPreviewModal';
 import { OrganizeOptionsModal, OrganizeOptionsPayload } from './OrganizeOptionsModal';
@@ -100,12 +100,14 @@ const ContextMenu: React.FC<{
 }> = ({ state, onAction, onClose, onMinimize, showMinimize }) => {
   const [activeSubMenu, setActiveSubMenu] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const openedAtRef = useRef(0);
   const [position, setPosition] = useState({ x: state.x, y: state.y });
 
   useEffect(() => {
     if (!state.visible) {
       setActiveSubMenu(null);
     } else {
+      openedAtRef.current = performance.now();
       // Calculate adjusted position when menu becomes visible
       const menuWidth = 240; // w-56 sm:w-60 approximate width
       const menuHeight = menuRef.current?.offsetHeight || 400;
@@ -195,6 +197,7 @@ const ContextMenu: React.FC<{
 
 
   const itemsToShow = state.type === 'image' ? menuItems.image : (state.type === 'selection' ? menuItems.selection : menuItems.general);
+  const isOpeningClick = () => performance.now() - openedAtRef.current < 180;
 
   return (
     <>
@@ -232,6 +235,7 @@ const ContextMenu: React.FC<{
               <button
                 onClick={(e) => { 
                   e.stopPropagation();
+                  if (isOpeningClick()) return;
                   if (item.subMenu) {
                     // Toggle submenu
                     setActiveSubMenu(activeSubMenu === item.label ? null : item.label);
@@ -259,6 +263,7 @@ const ContextMenu: React.FC<{
                         <button
                           onClick={(e) => { 
                             e.stopPropagation();
+                            if (isOpeningClick()) return;
                             subItem.action(); 
                             onClose(); 
                           }}
@@ -294,7 +299,7 @@ export const NoteEditor = forwardRef<NoteEditorHandles, NoteEditorProps>(({ cont
   const [promptInitiator, setPromptInitiator] = useState<AiAction | null>(null);
   const [isOrganizeModalOpen, setIsOrganizeModalOpen] = useState<boolean>(false);
   const [organizeContextText, setOrganizeContextText] = useState<string>('');
-  const [previewState, setPreviewState] = useState<AiPreviewState>({ isOpen: false, isLoading: false, content: '', originalAction: null, originalSelection: null });
+  const [previewState, setPreviewState] = useState<AiPreviewState>({ isOpen: false, isLoading: false, content: '', originalAction: null, originalSelection: null, modelInfo: null });
   const [selectedElement, setSelectedElement] = useState<HTMLElement | null>(null);
   const [cropState, setCropState] = useState<{isOpen: boolean; imageEl: HTMLImageElement | null}>({ isOpen: false, imageEl: null });
   const [promptImageContext, setPromptImageContext] = useState<string | null>(null);
@@ -934,6 +939,7 @@ ${selectedText}
       content: '',
       originalAction: { action, customPrompt },
       originalSelection: selectionRef.current ? selectionRef.current.cloneRange() : null,
+      modelInfo: null,
     });
 
     try {
@@ -942,6 +948,7 @@ ${selectedText}
         ...prevState,
         isLoading: false,
         content: aiResponseMarkdown,
+        modelInfo: getCurrentModelRouteInfo(),
       }));
     } catch (error) {
       console.error("AI action failed:", error);
@@ -995,7 +1002,7 @@ ${selectedText}
   };
 
   // Handle selection button click to show menu
-  const handleSelectionButtonClick = async (e: React.PointerEvent<HTMLButtonElement>) => {
+  const handleSelectionButtonClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -1841,7 +1848,11 @@ ${selectedText}
       {/* Floating Selection Button */}
       {selectionButton.visible && (
         <button
-          onPointerDown={handleSelectionButtonClick}
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onClick={handleSelectionButtonClick}
           className="fixed z-50 p-2.5 sm:p-2 bg-gradient-to-br from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white rounded-full shadow-2xl transition-all duration-200 transform hover:scale-110 active:scale-95 icon-glossy animate-fade-in-fast cursor-pointer touch-manipulation"
           style={{
             top: selectionButton.y,

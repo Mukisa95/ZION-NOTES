@@ -2,10 +2,7 @@ import { GoogleGenAI, Chat, Part, Type } from "@google/genai";
 import mammoth from "mammoth";
 import { TranscriptionError, TranscriptionOption } from "../types";
 
-// Default API key (fallback)
-const DEFAULT_API_KEY = 'AIzaSyDVa1NyXAB1xAQTwSgGt8q5HP1kmCINuzE';
-
-// Get API key from localStorage, environment variable, or use default
+// Get API key from localStorage or environment variable
 export const getGeminiApiKey = (): string => {
   const storedKey = localStorage.getItem('gemini_api_key');
   if (storedKey) {
@@ -16,9 +13,8 @@ export const getGeminiApiKey = (): string => {
   if (envKey) {
     return envKey;
   }
-  
-  // Use default API key as fallback
-  return DEFAULT_API_KEY;
+
+  return '';
 };
 
 const getAI = () => {
@@ -28,8 +24,19 @@ const getAI = () => {
 
 const TEXT_MODEL = 'gemini-2.5-flash';
 const VISION_MODEL = 'gemini-2.5-pro';
+const resolveModel = (modelOverride?: string, fallback = TEXT_MODEL): string =>
+  modelOverride?.trim() || fallback;
 
-export const generateText = async (prompt: string, images?: { mimeType: string; data: string }[]): Promise<string> => {
+export const generateText = async (
+  prompt: string,
+  images?: { mimeType: string; data: string }[],
+  modelOverride?: string
+): Promise<string> => {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    throw new Error('Gemini API key not configured. Please add your Gemini API key in Settings.');
+  }
+
   try {
     const ai = getAI();
     const parts: Part[] = [{ text: prompt }];
@@ -45,23 +52,23 @@ export const generateText = async (prompt: string, images?: { mimeType: string; 
     }
 
     const response = await ai.models.generateContent({
-      model: TEXT_MODEL,
+      model: resolveModel(modelOverride, TEXT_MODEL),
       contents: { parts },
     });
     return response.text;
   } catch (error) {
     console.error("Error generating text:", error);
-    if (error instanceof Error && error.message.includes('API key not configured')) {
-      return "⚠️ API key not configured. Please add your Gemini API key in Settings (click the gear icon).";
+    if (error instanceof Error) {
+      throw new Error(`Gemini generateText failed: ${error.message}`);
     }
-    return "Error: Could not generate text. Please check your API key in Settings.";
+    throw new Error('Gemini generateText failed due to an unknown error.');
   }
 };
 
-export const createGeminiChatSession = (): Chat => {
+export const createGeminiChatSession = (modelOverride?: string): Chat => {
   const ai = getAI();
   return ai.chats.create({
-    model: TEXT_MODEL,
+    model: resolveModel(modelOverride, TEXT_MODEL),
     config: {
       systemInstruction:
         'You are a helpful assistant for a note-taking app. Be concise and clear in your responses. Always use rich Markdown formatting (like **bold**, *italics*, and bulleted or numbered lists) to enhance readability and structure. Use indentation for nested lists to create clear hierarchies.',
@@ -172,7 +179,8 @@ const withRetries = async <T>(fn: () => Promise<T>, attempts = 3, baseDelayMs = 
 
 export const transcribeFiles = async (
   files: File[],
-  option: TranscriptionOption
+  option: TranscriptionOption,
+  modelOverride?: string
 ): Promise<{ html: string; errors: Omit<TranscriptionError, 'id'>[] }> => {
   return withRetries(async () => {
     const ai = getAI();
@@ -180,7 +188,7 @@ export const transcribeFiles = async (
     const prompt = getTranscriptionPrompt(option);
 
     const response = await ai.models.generateContent({
-      model: VISION_MODEL,
+      model: resolveModel(modelOverride, VISION_MODEL),
       contents: { parts: [{ text: prompt }, ...fileParts] },
       config: {
         responseMimeType: 'application/json',

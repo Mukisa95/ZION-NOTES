@@ -1704,6 +1704,7 @@ const App: React.FC = () => {
             onZoomIn={() => setZoomLevel(z => Math.min(200, z + 10))}
             onZoomOut={() => setZoomLevel(z => Math.max(50, z - 10))}
             onSetZoom={setZoomLevel}
+            onClickProvider={() => setIsProviderOpen(true)}
         />
         
         {/* Compression Indicator */}

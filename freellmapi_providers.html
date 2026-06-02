@@ -1,0 +1,177 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; padding: 1rem 0; }
+.card {
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.card:hover { border-color: var(--color-border-secondary); }
+.card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.card-name { font-size: 14px; font-weight: 500; color: var(--color-text-primary); }
+.badge {
+  font-size: 11px; padding: 2px 8px; border-radius: 99px;
+  white-space: nowrap;
+}
+.b-free    { background: #E1F5EE; color: #085041; }
+.b-paid    { background: #FAEEDA; color: #633806; }
+.b-both    { background: #EEEDFE; color: #3C3489; }
+.card-desc { font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; margin-bottom: 8px; }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.tag {
+  font-size: 11px; padding: 2px 7px; border-radius: 99px;
+  background: var(--color-background-secondary);
+  color: var(--color-text-secondary);
+  border: 0.5px solid var(--color-border-tertiary);
+}
+.tag.vision { background: #E6F1FB; color: #0C447C; border-color: #B5D4F4; }
+.section-label {
+  font-size: 12px; font-weight: 500; color: var(--color-text-secondary);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  margin: 1.5rem 0 0.5rem;
+}
+.section-label:first-child { margin-top: 0; }
+</style>
+
+<h2 class="sr-only">FreeLLMAPI supported providers — list of all AI providers available through the proxy</h2>
+
+<p class="section-label">OpenAI-compatible (pass-through)</p>
+<div class="grid">
+
+  <div class="card" onclick="sendPrompt('Tell me more about using Groq with FreeLLMAPI')">
+    <div class="card-top">
+      <span class="card-name">Groq</span>
+      <span class="badge b-free">free tier</span>
+    </div>
+    <p class="card-desc">Ultra-fast inference. Llama, Mixtral, Gemma models.</p>
+    <div class="tags">
+      <span class="tag vision">vision</span>
+      <span class="tag">streaming</span>
+      <span class="tag">tools</span>
+    </div>
+  </div>
+
+  <div class="card" onclick="sendPrompt('Tell me more about using Cerebras with FreeLLMAPI')">
+    <div class="card-top">
+      <span class="card-name">Cerebras</span>
+      <span class="badge b-free">free tier</span>
+    </div>
+    <p class="card-desc">Hardware-accelerated inference on wafer-scale chips.</p>
+    <div class="tags">
+      <span class="tag">streaming</span>
+      <span class="tag">tools</span>
+    </div>
+  </div>
+
+  <div class="card" onclick="sendPrompt('Tell me more about using SambaNova with FreeLLMAPI')">
+    <div class="card-top">
+      <span class="card-name">SambaNova</span>
+      <span class="badge b-free">free tier</span>
+    </div>
+    <p class="card-desc">High-throughput inference with Llama models.</p>
+    <div class="tags">
+      <span class="tag vision">vision</span>
+      <span class="tag">streaming</span>
+      <span class="tag">tools</span>
+    </div>
+  </div>
+
+  <div class="card" onclick="sendPrompt('Tell me more about using Mistral with FreeLLMAPI')">
+    <div class="card-top">
+      <span class="card-name">Mistral</span>
+      <span class="badge b-both">free + paid</span>
+    </div>
+    <p class="card-desc">European AI. Mistral, Codestral, Pixtral models.</p>
+    <div class="tags">
+      <span class="tag">streaming</span>
+      <span class="tag">tools</span>
+    </div>
+  </div>
+
+  <div class="card" onclick="sendPrompt('Tell me more about using OpenRouter with FreeLLMAPI')">
+    <div class="card-top">
+      <span class="card-name">OpenRouter</span>
+      <span class="badge b-both">free + paid</span>
+    </div>
+    <p class="card-desc">Meta-router. Access 100+ models from one key.</p>
+    <div class="tags">
+      <span class="tag">streaming</span>
+      <span class="tag">tools</span>
+    </div>
+  </div>
+
+  <div class="card" onclick="sendPrompt('Tell me more about using GitHub Models with FreeLLMAPI')">
+    <div class="card-top">
+      <span class="card-name">GitHub Models</span>
+      <span class="badge b-free">free tier</span>
+    </div>
+    <p class="card-desc">GPT-4o and GPT-4.1 via GitHub marketplace.</p>
+    <div class="tags">
+      <span class="tag vision">vision</span>
+      <span class="tag">streaming</span>
+      <span class="tag">tools</span>
+    </div>
+  </div>
+
+  <div class="card" onclick="sendPrompt('Tell me more about using HuggingFace with FreeLLMAPI')">
+    <div class="card-top">
+      <span class="card-name">HuggingFace</span>
+      <span class="badge b-both">free + paid</span>
+    </div>
+    <p class="card-desc">Serverless inference on open-source models.</p>
+    <div class="tags">
+      <span class="tag">streaming</span>
+    </div>
+  </div>
+
+  <div class="card" onclick="sendPrompt('Tell me more about using Cloudflare Workers AI with FreeLLMAPI')">
+    <div class="card-top">
+      <span class="card-name">Cloudflare</span>
+      <span class="badge b-free">free tier</span>
+    </div>
+    <p class="card-desc">Edge-deployed inference on Cloudflare's network.</p>
+    <div class="tags">
+      <span class="tag">streaming</span>
+    </div>
+  </div>
+
+  <div class="card" onclick="sendPrompt('Tell me more about using Cohere with FreeLLMAPI')">
+    <div class="card-top">
+      <span class="card-name">Cohere</span>
+      <span class="badge b-both">free + paid</span>
+    </div>
+    <p class="card-desc">Command R models. Strong at RAG and tool use.</p>
+    <div class="tags">
+      <span class="tag">streaming</span>
+      <span class="tag">tools</span>
+    </div>
+  </div>
+
+</div>
+
+<p class="section-label">Translated (native API format)</p>
+<div class="grid">
+
+  <div class="card" onclick="sendPrompt('How does FreeLLMAPI translate requests for Gemini?')">
+    <div class="card-top">
+      <span class="card-name">Gemini</span>
+      <span class="badge b-free">free tier</span>
+    </div>
+    <p class="card-desc">Google's models. 2.5 Flash, 2.5 Pro, 3.x series.</p>
+    <div class="tags">
+      <span class="tag vision">vision</span>
+      <span class="tag">streaming</span>
+      <span class="tag">tools</span>
+    </div>
+  </div>
+
+</div>
+
+<p class="section-label">Vision-capable models (tagged in dashboard)</p>
+<div style="background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 12px 14px; font-size: 13px; color: var(--color-text-secondary); line-height: 1.7; margin-bottom: 1rem;">
+  Gemini 2.5 / 3.x &nbsp;·&nbsp; Llama 4 Scout / Maverick (Groq, NVIDIA, SambaNova) &nbsp;·&nbsp; GitHub GPT-4o / GPT-4.1
+</div>

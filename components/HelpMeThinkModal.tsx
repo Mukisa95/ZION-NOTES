@@ -1,12 +1,15 @@
 import React, { useState, FormEvent, useEffect, useRef } from 'react';
-import { generateText } from '../services/aiService';
+import { generateText, getCurrentModelRouteInfo } from '../services/aiService';
 import { XIcon, SendIcon, BrainIcon, CheckIcon, UserIcon } from './icons';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { useAuth } from '../contexts/AuthContext';
+import { ModelRouteBadge } from './ModelRouteBadge';
+import { ModelRouteInfo } from '../types';
 
 interface ConversationMessage {
   role: 'user' | 'model' | 'system';
   content: string;
+  modelInfo?: ModelRouteInfo | null;
 }
 
 interface HelpMeThinkModalProps {
@@ -28,6 +31,7 @@ export const HelpMeThinkModal: React.FC<HelpMeThinkModalProps> = ({ isOpen, onCl
   const [conversation, setConversation] = useState<ConversationMessage[]>([]);
   const [initialTopic, setInitialTopic] = useState('');
   const [generatedContent, setGeneratedContent] = useState('');
+  const [activeModelInfo, setActiveModelInfo] = useState<ModelRouteInfo | null>(null);
   const [selectedMessages, setSelectedMessages] = useState<Set<number>>(new Set());
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -40,6 +44,7 @@ export const HelpMeThinkModal: React.FC<HelpMeThinkModalProps> = ({ isOpen, onCl
         const lastMessage = initialSession.conversation[initialSession.conversation.length - 1];
         if (lastMessage?.role === 'model') {
           setGeneratedContent(lastMessage.content);
+          setActiveModelInfo(lastMessage.modelInfo ?? null);
           setStep('specific_response');
         } else if (lastMessage?.role === 'system') {
           setStep('vague_response');
@@ -52,6 +57,7 @@ export const HelpMeThinkModal: React.FC<HelpMeThinkModalProps> = ({ isOpen, onCl
         setInputValue('');
         setInitialTopic('');
         setGeneratedContent('');
+        setActiveModelInfo(null);
         setIsLoading(false);
         setSelectedMessages(new Set());
       }
@@ -111,10 +117,12 @@ User Input:
         const responseText = await generateText(metaPrompt);
         const cleanedResponse = responseText.replace(/```json\n?|\n?```/g, '').trim();
         const parsedResponse = JSON.parse(cleanedResponse);
+        const modelInfo = getCurrentModelRouteInfo();
+        setActiveModelInfo(modelInfo);
 
         if (parsedResponse.type === 'SPECIFIC_REQUEST') {
             setGeneratedContent(parsedResponse.response);
-            setConversation(prev => [...prev, { role: 'model', content: parsedResponse.response }]);
+            setConversation(prev => [...prev, { role: 'model', content: parsedResponse.response, modelInfo }]);
             setStep('specific_response');
         } else if (parsedResponse.type === 'VAGUE_CONCEPT') {
             const message = `${parsedResponse.understanding}\n\n${parsedResponse.followUpQuestion}`;
@@ -150,8 +158,10 @@ Generate the content now.`;
 
     try {
         const responseText = await generateText(prompt);
+        const modelInfo = getCurrentModelRouteInfo();
+        setActiveModelInfo(modelInfo);
         setGeneratedContent(responseText);
-        setConversation(prev => [...prev, { role: 'model', content: responseText }]);
+        setConversation(prev => [...prev, { role: 'model', content: responseText, modelInfo }]);
         setStep('specific_response');
     } catch (error) {
         console.error("Error processing follow-up:", error);
@@ -292,9 +302,14 @@ Generate the content now.`;
                 <BrainIcon className="h-6 w-6 text-white" />
             </div>
            </div>
-          <h2 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-200 w-full text-center mt-0 sm:mt-4">
-            {step === 'selection' ? 'Select Thoughts to Add' : 'Let me help you think'}
-          </h2>
+          <div className="w-full min-w-0 text-center mt-0 sm:mt-4">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-gray-200">
+              {step === 'selection' ? 'Select Thoughts to Add' : 'Let me help you think'}
+            </h2>
+            <div className="mt-1 flex justify-center">
+              <ModelRouteBadge modelInfo={activeModelInfo} compact />
+            </div>
+          </div>
           <button onClick={onClose} className="p-1 rounded-full text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 absolute top-3 right-3">
             <XIcon className="h-6 w-6" />
           </button>
@@ -323,6 +338,11 @@ Generate the content now.`;
                         : msg.role === 'system' ? 'bg-yellow-50 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-200 rounded-2xl text-center'
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-t-2xl rounded-br-2xl'
                     }`}>
+                      {msg.role === 'model' && msg.modelInfo && (
+                        <div className="mb-2">
+                          <ModelRouteBadge modelInfo={msg.modelInfo} compact />
+                        </div>
+                      )}
                       <MarkdownRenderer content={msg.content} className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1.5 prose-ul:my-1.5 prose-ol:my-1.5 prose-headings:my-2 prose-li:my-0.5" />
                     </div>
                   </div>

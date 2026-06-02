@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AiAction, AiPreviewState } from '../types';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { XIcon, DocumentIcon } from './icons';
+import { ModelRouteBadge } from './ModelRouteBadge';
 
 interface DocumentOption {
   id: string;
@@ -235,10 +236,13 @@ export const AiPreviewModal: React.FC<AiPreviewModalProps> = ({
       <div data-modal="true" className="fixed bottom-4 right-4 z-50 animate-fade-in-fast">
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 min-w-[300px] max-w-[500px]">
           <header className="flex justify-between items-center p-3 border-b border-gray-200 dark:border-gray-700">
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-200">AI Response</h2>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-200">AI Response</h2>
+                <ModelRouteBadge modelInfo={state.modelInfo} compact />
+              </div>
               {selectedDocumentId && (
-                <span className="text-xs text-gray-500 dark:text-gray-400">
+                <span className="mt-1 block text-xs text-gray-500 dark:text-gray-400">
                   to {availableDocuments.find(d => d.id === selectedDocumentId)?.name || 'Document'}
                 </span>
               )}
@@ -281,8 +285,13 @@ export const AiPreviewModal: React.FC<AiPreviewModalProps> = ({
   return (
     <div data-modal="true" className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 animate-fade-in-fast backdrop-blur-sm">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl grid grid-rows-[auto_1fr_auto] transform transition-all duration-300 scale-95 animate-scale-in max-h-[90vh]">
-        <header className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">AI Response</h2>
+        <header className="flex justify-between items-center gap-3 p-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">AI Response</h2>
+            <div className="mt-1">
+              <ModelRouteBadge modelInfo={state.modelInfo} compact />
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsMinimized(true)}

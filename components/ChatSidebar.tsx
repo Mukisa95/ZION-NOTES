@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, FormEvent } from 'react';
-import { GenericChatSession, ChatMessage } from '../types';
-import { createChatSession } from '../services/aiService';
+import { GenericChatSession, ChatMessage, ModelRouteInfo } from '../types';
+import { createChatSession, getActiveProvider, getCurrentModelRouteInfo } from '../services/aiService';
 import { XIcon, SendIcon, BotIcon, UserIcon, PaperClipIcon, SparklesIcon } from './icons';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { useAuth } from '../contexts/AuthContext';
+import { ModelRouteBadge } from './ModelRouteBadge';
 
 interface ChatWindowProps {
   addTextToNote: (text: string) => void;
@@ -37,6 +38,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ addTextToNote }) => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [attachedImages, setAttachedImages] = useState<DraftAttachment[]>([]);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [activeModelInfo, setActiveModelInfo] = useState<ModelRouteInfo | null>(getCurrentModelRouteInfo());
   const chatRef = useRef<GenericChatSession | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -124,11 +126,32 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ addTextToNote }) => {
         chatRef.current = createChatSession();
       }
 
+      const selectedProvider = getActiveProvider();
+      const initialModelInfo = selectedProvider === 'auto' ? null : getCurrentModelRouteInfo();
+      setActiveModelInfo(initialModelInfo);
+      if (initialModelInfo) {
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === modelMessageId ? { ...message, modelInfo: initialModelInfo } : message
+          )
+        );
+      }
+
+      const handleModelSelected = (modelInfo: ModelRouteInfo) => {
+        setActiveModelInfo(modelInfo);
+        setMessages((prev) =>
+          prev.map((message) =>
+            message.id === modelMessageId ? { ...message, modelInfo } : message
+          )
+        );
+      };
+
       const stream = chatRef.current.sendMessageStream({
         message: trimmedPrompt,
         images: preparedImages.length > 0
           ? preparedImages.map(({ mimeType, data }) => ({ mimeType, data }))
           : undefined,
+        onModelSelected: handleModelSelected,
       });
 
       let modelResponse = '';
@@ -228,10 +251,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ addTextToNote }) => {
 
   return (
     <div className={`fixed inset-0 sm:inset-auto sm:bottom-6 sm:right-6 z-40 w-full sm:max-w-md h-[100dvh] sm:h-[75vh] sm:max-h-[600px] flex flex-col bg-white dark:bg-gray-800 sm:bg-white/80 sm:dark:bg-gray-800/80 backdrop-blur-xl border-0 sm:border border-gray-200/50 dark:border-gray-700/50 shadow-2xl rounded-none sm:rounded-2xl transition-all duration-300 ease-in-out ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
-      <header className="flex items-center justify-between p-4 sm:p-4 border-b border-gray-200/80 dark:border-gray-700/80 flex-shrink-0 bg-white dark:bg-gray-800">
-        <h2 className="text-lg sm:text-lg font-bold flex items-center gap-2">
-          <span className="bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">AI Assistant</span>
-        </h2>
+      <header className="flex items-center justify-between gap-3 p-4 sm:p-4 border-b border-gray-200/80 dark:border-gray-700/80 flex-shrink-0 bg-white dark:bg-gray-800">
+        <div className="min-w-0">
+          <h2 className="text-lg sm:text-lg font-bold flex items-center gap-2">
+            <span className="bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">AI Assistant</span>
+          </h2>
+          <div className="mt-1">
+            <ModelRouteBadge modelInfo={activeModelInfo} compact />
+          </div>
+        </div>
         <button onClick={() => setIsOpen(false)} className="p-2 sm:p-1.5 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
           <XIcon className="h-6 w-6 sm:h-5 sm:w-5" />
         </button>
@@ -243,6 +271,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ addTextToNote }) => {
             {msg.role === 'model' && <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-900 flex items-center justify-center text-blue-500 shadow-sm"><BotIcon className="w-5 h-5" /></div>}
             <div className={`group relative text-sm max-w-[88%] ${msg.role === 'user' ? 'order-1' : ''}`}>
               <div className={`px-4 py-2.5 shadow-sm ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-t-2xl rounded-bl-2xl' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-t-2xl rounded-br-2xl'}`}>
+                {msg.role === 'model' && msg.modelInfo && (
+                  <div className="mb-2">
+                    <ModelRouteBadge modelInfo={msg.modelInfo} compact />
+                  </div>
+                )}
                 {msg.imagePreviews && msg.imagePreviews.length > 0 && (
                   <div className="grid grid-cols-2 gap-2 mb-2">
                     {msg.imagePreviews.map((src, i) => (

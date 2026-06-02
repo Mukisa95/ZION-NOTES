@@ -1,14 +1,40 @@
 // FIX: The Range type is a global DOM type and should not be imported from 'react'. It is available globally in browser environments.
 
 // ─── AI Provider ───────────────────────────────────────────────────────────────
-export type AiProvider = 'openrouter' | 'gemini' | 'nvidia';
+export type AiProvider =
+  | 'openrouter'
+  | 'gemini'
+  | 'nvidia'
+  | 'groq'
+  | 'cerebras'
+  | 'sambanova'
+  | 'mistral'
+  | 'github'
+  | 'huggingface'
+  | 'cloudflare'
+  | 'cohere'
+  | 'auto';
 
 /** Provider-agnostic streaming chat session returned by aiService.createChatSession() */
 export interface GenericChatSession {
   sendMessageStream(params: {
     message: string;
     images?: { mimeType: string; data: string }[];
+    onModelSelected?: (model: ModelRouteInfo) => void;
   }): AsyncIterable<string>;
+}
+
+export interface ModelRouteInfo {
+  provider: Exclude<AiProvider, 'auto'>;
+  model: string;
+  id: string;
+  displayName: string;
+}
+
+export interface AutoRouteModelEntry {
+  provider: Exclude<AiProvider, 'auto'>;
+  model: string;
+  enabled: boolean;
 }
 
 export interface ContextMenuState {
@@ -25,6 +51,7 @@ export interface ChatMessage {
   imagePreviews?: string[]; // Data URLs for displaying the user's uploaded images
   images?: { mimeType: string; data: string; preview: string }[];
   relatedUserMessageId?: string;
+  modelInfo?: ModelRouteInfo;
 }
 
 export type FormatType = 
@@ -87,6 +114,7 @@ export interface AiPreviewState {
     action: AiAction;
     customPrompt?: string;
   } | null;
+  modelInfo?: ModelRouteInfo | null;
 }
 
 export interface NoteEditorHandles {
