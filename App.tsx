@@ -1664,7 +1664,7 @@ const App: React.FC = () => {
                     </button>
 
                     {isToolsMenuOpen && (
-                      <div className="absolute left-0 top-full mt-2 z-50 w-72 overflow-hidden rounded-2xl border border-gray-200/80 dark:border-gray-700/80 bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl shadow-2xl shadow-black/15 dark:shadow-black/40 animate-fade-in-fast">
+                      <div className="absolute left-0 top-full mt-2 z-50 w-72 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-gray-200/80 dark:border-gray-700/80 bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl shadow-2xl shadow-black/15 dark:shadow-black/40 animate-fade-in-fast">
                         <div className="px-4 pt-3.5 pb-2 border-b border-gray-100 dark:border-gray-800">
                           <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Document Tools</p>
                         </div>

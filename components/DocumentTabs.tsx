@@ -156,7 +156,7 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
                     </button>
 
                     {overflowOpen && (
-                        <div className="absolute left-0 top-full mt-2 z-50 w-72 overflow-hidden rounded-2xl border border-gray-200/80 dark:border-gray-700/80 bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl shadow-2xl shadow-black/15 dark:shadow-black/40">
+                        <div className="absolute right-0 top-full mt-2 z-50 w-72 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-gray-200/80 dark:border-gray-700/80 bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl shadow-2xl shadow-black/15 dark:shadow-black/40">
                             {/* Header */}
                             <div className="px-4 pt-3 pb-2 border-b border-gray-100 dark:border-gray-800">
                                 <p className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Other Open Documents</p>

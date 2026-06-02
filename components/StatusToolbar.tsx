@@ -70,7 +70,7 @@ export const StatusToolbar: React.FC<StatusToolbarProps> = ({
             <button
               type="button"
               onClick={onHome}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 shadow-sm transition-all hover:bg-blue-50 hover:text-blue-600 active:scale-95 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-blue-900/20 dark:hover:text-blue-300 sm:hidden"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 shadow-sm transition-all hover:bg-blue-50 hover:text-blue-600 active:scale-95 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-blue-900/20 dark:hover:text-blue-300"
               title="Home"
             >
               <HomeIcon className="h-4 w-4" />
@@ -116,8 +116,8 @@ export const StatusToolbar: React.FC<StatusToolbarProps> = ({
 
         {/* RIGHT: User avatar (mobile) + zoom controls (desktop) */}
         <div className="flex items-center gap-1.5">
-          {/* User avatar – mobile only, pinned right */}
-          <div className="shrink-0 sm:hidden">
+          {/* User avatar – pinned right */}
+          <div className="shrink-0">
             <UserProfile onOpenProvider={onClickProvider || (() => undefined)} mobilePanelPosition="bottom" />
           </div>
 
