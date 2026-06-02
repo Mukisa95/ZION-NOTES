@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { HomeIcon, ZoomInIcon, ZoomOutIcon } from './icons';
+import { HomeIcon, ZoomInIcon, ZoomOutIcon, CloudIcon } from './icons';
 import { AiProvider } from '../types';
 import { getProviderMeta } from '../services/providerRegistry';
 import { getActiveProvider } from '../services/aiService';
 import { getLastRoutedVia } from '../services/autoRouterService';
 import { UserProfile } from './UserProfile';
+import { useAuth } from '../contexts/AuthContext';
 
 interface StatusToolbarProps {
   counts: {
@@ -17,6 +18,7 @@ interface StatusToolbarProps {
   onSetZoom: (zoom: number) => void;
   onClickProvider?: () => void;
   onHome?: () => void;
+  onSignIn?: () => void;
 }
 
 const getBadgeColor = (id: AiProvider): string => {
@@ -43,7 +45,9 @@ export const StatusToolbar: React.FC<StatusToolbarProps> = ({
   onSetZoom,
   onClickProvider,
   onHome,
+  onSignIn,
 }) => {
+  const { user } = useAuth();
   const [mobileCountMode, setMobileCountMode] = useState<'words' | 'characters'>('words');
   const activeProvider = getActiveProvider();
   const lastRouted = getLastRoutedVia();
@@ -116,9 +120,21 @@ export const StatusToolbar: React.FC<StatusToolbarProps> = ({
 
         {/* RIGHT: User avatar (mobile) + zoom controls (desktop) */}
         <div className="flex items-center gap-1.5">
-          {/* User avatar – pinned right */}
+          {/* User avatar or Sign In button – pinned right */}
           <div className="shrink-0">
-            <UserProfile onOpenProvider={onClickProvider || (() => undefined)} mobilePanelPosition="bottom" />
+            {!user ? (
+              <button
+                type="button"
+                onClick={onSignIn}
+                className="flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white text-xs font-semibold rounded-md shadow hover:shadow-md transition-all duration-150 hover:scale-105 active:scale-95"
+                title="Sign in to sync documents"
+              >
+                <CloudIcon className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Sign In</span>
+              </button>
+            ) : (
+              <UserProfile onOpenProvider={onClickProvider || (() => undefined)} mobilePanelPosition="bottom" />
+            )}
           </div>
 
           {/* Zoom controls – desktop only */}

@@ -1579,58 +1579,7 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              {/* Sign In button — small screens only (no user avatar in top bar) */}
-              {!user && (
-                <button
-                  onClick={() => setIsAuthModalOpen(true)}
-                  className="lg:hidden flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white text-xs font-semibold rounded-md shadow hover:shadow-md transition-all duration-150 hover:scale-105 active:scale-95"
-                  title="Sign in to sync documents"
-                >
-                  <CloudIcon className="h-4 w-4" />
-                  <span>Sign In</span>
-                </button>
-              )}
 
-              {/* Desktop: Provider + Sign In / User profile */}
-              <div className="hidden lg:flex items-center gap-0.5 bg-gray-50/95 dark:bg-gray-800/90 backdrop-blur-md p-0.5 rounded-lg border border-gray-200/60 dark:border-gray-700/40 shadow-sm">
-                {user ? (
-                  <>
-                    <button
-                      onClick={() => setIsProviderOpen(true)}
-                      className="inline-flex items-center gap-1 px-2 py-1 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all hover:scale-105 active:scale-95 duration-150"
-                      title="Provider Settings"
-                    >
-                      <SettingsIcon className="h-3.5 w-3.5" />
-                      <span className="text-xs font-semibold">Provider</span>
-                    </button>
-                    {incognitoMode && (
-                      <div className="flex items-center gap-1 px-1.5 py-1 bg-orange-100 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-md text-[10px] font-semibold">
-                        <div className="w-1.5 h-1.5 bg-orange-500 rounded-full"></div>
-                        <span>Incognito</span>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <button
-                      onClick={() => setIsProviderOpen(true)}
-                      className="inline-flex items-center gap-1 px-2 py-1 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-400 rounded-md transition-all hover:scale-105 active:scale-95 duration-150"
-                      title="Provider Settings"
-                    >
-                      <SettingsIcon className="h-3.5 w-3.5" />
-                      <span className="text-xs font-semibold">Provider</span>
-                    </button>
-                    <button
-                      onClick={() => setIsAuthModalOpen(true)}
-                      className="flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white text-xs font-semibold rounded-md shadow hover:shadow-md transition-all duration-150 hover:scale-105 active:scale-95"
-                      title="Sign in to sync documents"
-                    >
-                      <CloudIcon className="h-4 w-4" />
-                      <span>Sign In</span>
-                    </button>
-                  </>
-                )}
-              </div>
             </div>
           </div>
 
@@ -1815,6 +1764,7 @@ const App: React.FC = () => {
             onSetZoom={setZoomLevel}
             onClickProvider={() => setIsProviderOpen(true)}
             onHome={() => setShowLandingPage(true)}
+            onSignIn={() => setIsAuthModalOpen(true)}
         />
         
         {/* Compression Indicator */}

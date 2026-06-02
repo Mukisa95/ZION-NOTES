@@ -53,7 +53,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ onOpenProvider, mobile
             onClick={() => setIsOpen(false)}
           />
           {/* Mobile: fixed full-width panel; Desktop: anchored dropdown */}
-          <div className={`${mobilePanelPosition === 'bottom' ? 'bottom-14' : 'top-14'} fixed inset-x-3 sm:absolute sm:inset-auto sm:right-0 sm:mt-2 w-auto sm:w-80 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-40 overflow-hidden max-h-[80dvh] overflow-y-auto`}>
+          <div className={`${mobilePanelPosition === 'bottom' ? 'bottom-14 sm:bottom-full sm:top-auto sm:mb-2' : 'top-14 sm:top-full sm:bottom-auto sm:mt-2'} fixed inset-x-3 sm:absolute sm:left-auto sm:right-0 w-auto sm:w-80 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-40 overflow-hidden max-h-[80dvh] overflow-y-auto`}>
             <div className="p-4 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800">
               <div className="flex items-center gap-3">
                 {user.photoURL ? (
