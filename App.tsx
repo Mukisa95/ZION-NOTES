@@ -455,9 +455,9 @@ const App: React.FC = () => {
 
   const [counts, setCounts] = useState({ words: 0, characters: 0 });
   const [zoomLevel, setZoomLevel] = useState(100);
-  const [isSmallScreen, setIsSmallScreen] = useState(false);
   const [isFindVisible, setIsFindVisible] = useState(false);
   const [searchResults, setSearchResults] = useState<{ total: number; current: number }>({ total: 0, current: 0 });
+  const pinchZoomRef = useRef<{ distance: number; zoom: number } | null>(null);
   
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [selectedContentForExport, setSelectedContentForExport] = useState<string | null>(null);
@@ -471,13 +471,30 @@ const App: React.FC = () => {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [pendingExport, setPendingExport] = useState<{ format: 'pdf' | 'html' | 'md' | 'txt' | 'docx'; content: string } | null>(null);
 
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(max-width: 639px)');
-    const updateScreenSize = () => setIsSmallScreen(mediaQuery.matches);
-    updateScreenSize();
-    mediaQuery.addEventListener('change', updateScreenSize);
-    return () => mediaQuery.removeEventListener('change', updateScreenSize);
-  }, []);
+  const getTouchDistance = (touches: React.TouchList) => {
+    const [first, second] = [touches[0], touches[1]];
+    return Math.hypot(first.clientX - second.clientX, first.clientY - second.clientY);
+  };
+
+  const handleWorkspaceTouchStart = (event: React.TouchEvent<HTMLElement>) => {
+    if (event.touches.length !== 2) return;
+    pinchZoomRef.current = {
+      distance: getTouchDistance(event.touches),
+      zoom: zoomLevel,
+    };
+  };
+
+  const handleWorkspaceTouchMove = (event: React.TouchEvent<HTMLElement>) => {
+    if (!pinchZoomRef.current || event.touches.length !== 2) return;
+    event.preventDefault();
+    const nextDistance = getTouchDistance(event.touches);
+    const nextZoom = Math.round(pinchZoomRef.current.zoom * (nextDistance / pinchZoomRef.current.distance));
+    setZoomLevel(Math.max(60, Math.min(180, nextZoom)));
+  };
+
+  const handleWorkspaceTouchEnd = () => {
+    pinchZoomRef.current = null;
+  };
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
@@ -1385,7 +1402,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-full w-full min-w-0 overflow-x-hidden font-sans text-gray-800 dark:text-gray-200">
+    <div className="flex h-dvh w-full min-w-0 overflow-hidden font-sans text-gray-800 dark:text-gray-200">
       {showLandingPage ? (
         <DocumentLandingPage
           onOpenDocument={handleOpenDocument}
@@ -1398,9 +1415,9 @@ const App: React.FC = () => {
           user={user}
         />
       ) : (
-        <div className="relative flex min-w-0 flex-1 flex-col overflow-x-hidden">
+        <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
           {/* Modern Header with Two Rows */}
-          <header className="sticky top-0 z-30 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-gray-200 dark:border-gray-700/50 shadow-sm">
+          <header className="z-30 shrink-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-gray-200 dark:border-gray-700/50 shadow-sm">
           {/* First Row: Brand + Action Buttons */}
           <div className="flex min-w-0 items-center justify-between gap-2 px-2 py-2 sm:px-4 border-b border-gray-100 dark:border-gray-800/50">
             {/* Brand */}
@@ -1411,7 +1428,7 @@ const App: React.FC = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1">
+            <div className="flex min-w-0 flex-1 flex-wrap items-center justify-end gap-1 sm:flex-nowrap">
               {/* Home Button */}
               <button
                 onClick={() => setShowLandingPage(true)}
@@ -1624,7 +1641,7 @@ const App: React.FC = () => {
 
           {/* Third Row: Formatting Toolbar – hidden on research tabs */}
           {!isResearchTab && (
-            <div className="px-4 py-2">
+            <div className="px-2 py-2 sm:px-4">
               <FormattingToolbar
                 onFormat={(type, value) => editorRef.current?.format(type, value)}
                 onClear={() => editorRef.current?.clear()}
@@ -1642,13 +1659,19 @@ const App: React.FC = () => {
 
         {/* Main content — swap NoteEditor for ResearchWorkspace on research tabs */}
         {activeTab?.type === 'research' && activeTab.researchProjectId ? (
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div
+            className="flex min-h-0 flex-1 flex-col overflow-hidden"
+            onTouchStart={handleWorkspaceTouchStart}
+            onTouchMove={handleWorkspaceTouchMove}
+            onTouchEnd={handleWorkspaceTouchEnd}
+            onTouchCancel={handleWorkspaceTouchEnd}
+          >
             <ResearchWorkspace
               key={activeTab.researchProjectId}
               projectId={activeTab.researchProjectId}
               userId={user?.uid}
               editorRef={editorRef}
-              zoomLevel={isSmallScreen ? 100 : zoomLevel}
+              zoomLevel={zoomLevel}
               onToggleFind={setIsFindVisible}
               isFindVisible={isFindVisible}
               searchResults={searchResults}
@@ -1662,7 +1685,14 @@ const App: React.FC = () => {
             />
           </div>
         ) : (
-          <main ref={mainContainerRef} className="flex min-w-0 flex-1 flex-col items-center overflow-y-auto overflow-x-hidden px-2 py-3 sm:px-4 sm:py-8">
+          <main
+            ref={mainContainerRef}
+            className="flex min-h-0 min-w-0 flex-1 flex-col items-center overflow-y-auto overflow-x-hidden overscroll-contain px-2 py-3 sm:px-4 sm:py-8"
+            onTouchStart={handleWorkspaceTouchStart}
+            onTouchMove={handleWorkspaceTouchMove}
+            onTouchEnd={handleWorkspaceTouchEnd}
+            onTouchCancel={handleWorkspaceTouchEnd}
+          >
             <div className="relative w-full max-w-4xl min-w-0">
               {isFindVisible && (
                 <FindAndReplaceBar
@@ -1677,7 +1707,7 @@ const App: React.FC = () => {
                 content={noteContent}
                 setContent={setNoteContent}
                 scrollContainerRef={mainContainerRef}
-                zoomLevel={isSmallScreen ? 100 : zoomLevel}
+                zoomLevel={zoomLevel}
                 onToggleFind={setIsFindVisible}
                 onOpenHelpMeThink={() => {
                   setIsNewBrainstormSession(true);

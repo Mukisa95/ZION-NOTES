@@ -54,12 +54,12 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
     };
 
     return (
-        <div className="flex min-w-0 flex-wrap items-center gap-0.5 overflow-x-hidden bg-gray-100 px-2 py-1 dark:bg-gray-800/50 sm:flex-nowrap sm:overflow-x-auto border-b border-gray-200 dark:border-gray-700/50">
+        <div className="flex min-w-0 flex-wrap items-center gap-0.5 overflow-hidden bg-gray-100 px-2 py-1 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700/50">
             {tabs.map(tab => (
                 <div
                     key={tab.id}
                     onClick={() => !renamingTabId && onTabClick(tab.id)}
-                    className={`group flex min-w-0 flex-1 basis-[calc(50%-0.125rem)] items-center gap-2 rounded-t-lg px-2 py-1.5 transition-all sm:min-w-[120px] sm:max-w-[200px] sm:flex-none sm:basis-auto ${
+                    className={`group flex min-w-0 flex-1 basis-[calc(50%-0.125rem)] items-center gap-2 rounded-t-lg px-2 py-1.5 transition-all sm:basis-[160px] sm:flex-none lg:basis-[180px] ${
                         tab.id === activeTabId
                             ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border-t-2 border-blue-500 shadow-sm'
                             : 'bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'

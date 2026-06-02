@@ -1791,11 +1791,13 @@ ${selectedText}
     }
   }, []);
 
+  const editorZoom = zoomLevel / 100;
+
   return (
     <>
        <div
         className={`relative max-w-full min-w-0 overflow-hidden ${flatMode ? 'h-full' : 'bg-white dark:bg-gray-800 rounded-2xl shadow-xl border-2 border-gray-200/80 dark:border-gray-700/80'}`}
-        style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: 'top left', touchAction: 'pinch-zoom' }}
+        style={{ zoom: editorZoom } as React.CSSProperties & { zoom: number }}
       >
         {/* Placeholder Text - Shows when editor is empty */}
         {(!content || content.trim() === '' || content === '<p><br></p>' || content === '<p></p>') && (

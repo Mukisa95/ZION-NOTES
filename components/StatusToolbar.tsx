@@ -58,7 +58,7 @@ export const StatusToolbar: React.FC<StatusToolbarProps> = ({
   };
 
   return (
-    <div className="sticky bottom-0 z-20 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-t border-gray-200 dark:border-gray-700/50">
+    <div className="z-20 shrink-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-t border-gray-200 dark:border-gray-700/50">
       <div className="flex min-w-0 items-center justify-between gap-2 px-2 py-1.5 sm:px-4">
         <div className="flex w-full min-w-0 items-center gap-1.5 text-xs sm:w-auto sm:gap-4">
           <div className="shrink-0 sm:hidden">
