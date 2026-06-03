@@ -1,7 +1,9 @@
 import mammoth from 'mammoth';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ExternalHyperlink, Table, TableRow, TableCell, WidthType, convertInchesToTwip, ImageRun, BorderStyle, ShadingType, TableLayoutType, VerticalAlignTable } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ExternalHyperlink, Table, TableRow, TableCell, WidthType, convertInchesToTwip, ImageRun, BorderStyle, ShadingType, TableLayoutType, VerticalAlignTable, Math as DocxMath, ImportedXmlComponent } from 'docx';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
+import katex from 'katex';
+import { mml2omml } from 'mathml2omml';
 
 type WordListType = 'bullet' | 'number';
 
@@ -1390,7 +1392,7 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
         const color = cssColorToHex(value) || 'D1D5DB';
         const widthMatch = value.match(/([\d.]+)px/);
         const width = widthMatch ? Math.max(2, Math.round(parseFloat(widthMatch[1]) * 6)) : 4;
-        let style = BorderStyle.SINGLE;
+        let style: any = BorderStyle.SINGLE;
         if (value.includes('dashed')) style = BorderStyle.DASHED;
         if (value.includes('dotted')) style = BorderStyle.DOTTED;
         if (value.includes('double')) style = BorderStyle.DOUBLE;
@@ -1433,8 +1435,8 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
         return VerticalAlignTable.TOP;
     };
     
-    const processNode = (node: Node): TextRun[] => {
-        const runs: TextRun[] = [];
+    const processNode = (node: Node): any[] => {
+        const runs: any[] = [];
         
         if (node.nodeType === Node.TEXT_NODE) {
             const text = node.textContent || '';
@@ -1456,7 +1458,7 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
         const el = node as HTMLElement;
         
         // Process child nodes
-        const childRuns: TextRun[] = [];
+        const childRuns: any[] = [];
         el.childNodes.forEach(child => {
             childRuns.push(...processNode(child));
         });
@@ -1563,8 +1565,23 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
             case 'math':
                 const annotation = el.querySelector('annotation');
                 if (annotation && annotation.textContent) {
-                    const isBlock = el.parentElement?.tagName === 'DIV';
                     const latex = annotation.textContent;
+                    try {
+                        const katexHtml = katex.renderToString(latex, { output: 'mathml' });
+                        const match = katexHtml.match(/<math[^>]*>.*?<\/math>/is);
+                        if (match) {
+                            // Strip semantics to avoid mml2omml warnings and potential errors
+                            let mathml = match[0].replace(/<semantics[^>]*>/g, '').replace(/<\/semantics>/g, '').replace(/<annotation[^>]*>.*?<\/annotation>/is, '');
+                            const omml = mml2omml(mathml);
+                            const mathComponent = new ImportedXmlComponent(omml);
+                            return [new DocxMath({ children: [mathComponent as any] }) as any];
+                        }
+                    } catch (err) {
+                        console.error('Error converting math to OMML:', err);
+                    }
+                    
+                    // Fallback to text if conversion fails
+                    const isBlock = el.parentElement?.tagName === 'DIV';
                     return [new TextRun({ 
                         text: isBlock ? `$$ ${latex} $$` : `$ ${latex} $`, 
                         font: 'Consolas',
@@ -1904,6 +1921,30 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
                 const annotationElement = htmlEl.querySelector('annotation');
                 if (annotationElement && annotationElement.textContent) {
                     const latex = annotationElement.textContent;
+                    try {
+                        const katexHtml = katex.renderToString(latex, { output: 'mathml' });
+                        const match = katexHtml.match(/<math[^>]*>.*?<\/math>/is);
+                        if (match) {
+                            // Strip semantics
+                            let mathml = match[0].replace(/<semantics[^>]*>/g, '').replace(/<\/semantics>/g, '').replace(/<annotation[^>]*>.*?<\/annotation>/is, '');
+                            const omml = mml2omml(mathml);
+                            const mathComponent = new ImportedXmlComponent(omml);
+                            elements.push(new Paragraph({
+                                children: [new DocxMath({ children: [mathComponent as any] }) as any],
+                                alignment: getAlignment(htmlEl) || AlignmentType.CENTER,
+                                spacing: {
+                                    before: 120,
+                                    after: 120,
+                                    line: 276
+                                }
+                            }));
+                            break;
+                        }
+                    } catch (err) {
+                        console.error('Error converting math block to OMML:', err);
+                    }
+                    
+                    // Fallback
                     elements.push(new Paragraph({
                         children: [new TextRun({ 
                             text: `$$ ${latex} $$`, 
