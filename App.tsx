@@ -1423,7 +1423,7 @@ const App: React.FC = () => {
           <header className="z-30 shrink-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-gray-200 dark:border-gray-700/50 shadow-sm">
 
           {/* ── Row 1: Brand (mobile) / Tabs (desktop) + Action Buttons ── */}
-          <div className="flex min-w-0 items-center gap-2 px-2 py-2 sm:px-4 border-b border-gray-100 dark:border-gray-800/50">
+          <div className={`min-w-0 items-center gap-2 px-2 py-2 sm:px-4 border-b border-gray-100 dark:border-gray-800/50 ${isResearchTab ? 'hidden lg:flex' : 'flex'}`}>
 
             {/* LEFT SIDE */}
             {/* Mobile: small brand icon/text */}
@@ -1595,7 +1595,7 @@ const App: React.FC = () => {
               onNewResearch={handleNewResearch}
               maxVisible={2}
               toolsButton={
-                !isResearchTab ? (
+                <div className="flex items-center gap-1.5 shrink-0">
                   <div className="relative">
                     <button
                       onClick={() => setIsToolsMenuOpen(prev => !prev)}
@@ -1604,7 +1604,7 @@ const App: React.FC = () => {
                           ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-500/30'
                           : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-700 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 dark:hover:border-blue-700 shadow-sm'
                       }`}
-                      title="Document Tools"
+                      title={isResearchTab ? "Project Tools" : "Document Tools"}
                     >
                       <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
@@ -1615,22 +1615,35 @@ const App: React.FC = () => {
                     {isToolsMenuOpen && (
                       <div className="absolute left-0 top-full mt-2 z-50 w-72 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-gray-200/80 dark:border-gray-700/80 bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl shadow-2xl shadow-black/15 dark:shadow-black/40 animate-fade-in-fast">
                         <div className="px-4 pt-3.5 pb-2 border-b border-gray-100 dark:border-gray-800">
-                          <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Document Tools</p>
+                          <p className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                            {isResearchTab ? "Project Tools" : "Document Tools"}
+                          </p>
                         </div>
                         <div className="p-2 grid grid-cols-2 gap-1.5">
-                          <button onClick={() => { setIsSaveDocumentDialogOpen(true); setIsToolsMenuOpen(false); }} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-700 dark:hover:text-blue-300 transition-all group">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-all"><SaveIcon className="h-4 w-4" /></span>
-                            <div><p className="text-xs font-semibold">Save</p><p className="text-[10px] text-gray-400 dark:text-gray-500">Save locally</p></div>
-                          </button>
+                          {!isResearchTab && (
+                            <button onClick={() => { setIsSaveDocumentDialogOpen(true); setIsToolsMenuOpen(false); }} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-700 dark:hover:text-blue-300 transition-all group">
+                              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-all"><SaveIcon className="h-4 w-4" /></span>
+                              <div><p className="text-xs font-semibold">Save</p><p className="text-[10px] text-gray-400 dark:text-gray-500">Save locally</p></div>
+                            </button>
+                          )}
                           <button onClick={() => { setIsDocumentLibraryOpen(true); setIsToolsMenuOpen(false); }} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-700 dark:hover:text-blue-300 transition-all group">
                             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all"><FolderIcon className="h-4 w-4" /></span>
                             <div><p className="text-xs font-semibold">Library</p><p className="text-[10px] text-gray-400 dark:text-gray-500">My documents</p></div>
                           </button>
-                          <button onClick={() => { handleOpenClick(); setIsToolsMenuOpen(false); }} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-700 dark:hover:text-blue-300 transition-all group">
-                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400 group-hover:bg-sky-500 group-hover:text-white transition-all"><UploadIcon className="h-4 w-4" /></span>
-                            <div><p className="text-xs font-semibold">Import</p><p className="text-[10px] text-gray-400 dark:text-gray-500">Word document</p></div>
-                          </button>
-                          <button onClick={() => { setIsTableOfContentsOpen(true); setIsToolsMenuOpen(false); }} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-700 dark:hover:text-blue-300 transition-all group">
+                          {!isResearchTab && (
+                            <button onClick={() => { handleOpenClick(); setIsToolsMenuOpen(false); }} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-700 dark:hover:text-blue-300 transition-all group">
+                              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400 group-hover:bg-sky-500 group-hover:text-white transition-all"><UploadIcon className="h-4 w-4" /></span>
+                              <div><p className="text-xs font-semibold">Import</p><p className="text-[10px] text-gray-400 dark:text-gray-500">Word document</p></div>
+                            </button>
+                          )}
+                          <button onClick={() => {
+                            if (isResearchTab) {
+                              setIsResearchTocOpen(prev => !prev);
+                            } else {
+                              setIsTableOfContentsOpen(true);
+                            }
+                            setIsToolsMenuOpen(false);
+                          }} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left text-gray-700 dark:text-gray-200 hover:bg-blue-50 dark:hover:bg-blue-950/40 hover:text-blue-700 dark:hover:text-blue-300 transition-all group">
                             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-950/50 text-violet-600 dark:text-violet-400 group-hover:bg-violet-500 group-hover:text-white transition-all"><TableOfContentsIcon className="h-4 w-4" /></span>
                             <div><p className="text-xs font-semibold">Contents</p><p className="text-[10px] text-gray-400 dark:text-gray-500">Table of contents</p></div>
                           </button>
@@ -1654,7 +1667,27 @@ const App: React.FC = () => {
                       </div>
                     )}
                   </div>
-                ) : undefined
+
+                  {isResearchTab && (
+                    <button
+                      onClick={async () => {
+                        setMyProjectsLoading(true);
+                        setIsMyProjectsOpen(true);
+                        try {
+                          const { getAllResearchProjectsFromFirestore } = await import('./services/researchFirestoreService');
+                          const projects = await getAllResearchProjectsFromFirestore(user?.uid || '');
+                          setMyProjects(projects);
+                        } catch (e) { console.error(e); }
+                        setMyProjectsLoading(false);
+                      }}
+                      className="inline-flex items-center gap-1 px-2 py-1.5 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg border border-indigo-200 dark:border-indigo-800 text-[10px] font-bold transition-all hover:scale-105 active:scale-95 duration-150 shadow-sm shrink-0 whitespace-nowrap"
+                      title="My Research Projects"
+                    >
+                      <FolderIcon className="h-3.5 w-3.5" />
+                      <span>Projects</span>
+                    </button>
+                  )}
+                </div>
               }
             />
           </div>

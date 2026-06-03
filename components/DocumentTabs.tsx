@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { XIcon, DocumentIcon } from './icons';
+import { XIcon, DocumentIcon, FolderIcon } from './icons';
 
 export interface DocumentTab {
     id: string;
@@ -102,7 +102,11 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
                             : 'bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
                 >
-                    <DocumentIcon className="h-3.5 w-3.5 flex-shrink-0 opacity-70" />
+                    {tab.type === 'research' ? (
+                        <FolderIcon className="h-3.5 w-3.5 flex-shrink-0 text-indigo-500 dark:text-indigo-400" />
+                    ) : (
+                        <DocumentIcon className="h-3.5 w-3.5 flex-shrink-0 opacity-70" />
+                    )}
 
                     {renamingTabId === tab.id ? (
                         <input
@@ -173,7 +177,11 @@ export const DocumentTabs: React.FC<DocumentTabsProps> = ({
                                         }`}
                                     >
                                         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400">
-                                            <DocumentIcon className="h-3.5 w-3.5" />
+                                            {tab.type === 'research' ? (
+                                                <FolderIcon className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
+                                            ) : (
+                                                <DocumentIcon className="h-3.5 w-3.5" />
+                                            )}
                                         </span>
                                         <span className="flex-1 min-w-0">
                                             <span className="block text-xs font-semibold truncate">
