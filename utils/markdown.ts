@@ -1,4 +1,21 @@
 import { parse as parseInline } from './markdownParser';
+import katex from 'katex';
+
+/**
+ * Renders a LaTeX string as a block-level HTML string using KaTeX.
+ */
+const renderBlockMath = (latex: string): string => {
+  try {
+    const rendered = katex.renderToString(latex.trim(), {
+      displayMode: true,
+      throwOnError: false,
+      strict: false,
+    });
+    return `<div style="overflow-x:auto;padding:12px 16px;margin:12px 0;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;text-align:center;">${rendered}</div>`;
+  } catch {
+    return `<pre style="padding:8px;background:#f9fafb;border-radius:6px;overflow-x:auto;">${latex}</pre>`;
+  }
+};
 
 interface TreeNode {
     text: string;
@@ -112,6 +129,9 @@ export const markdownToHtml = (markdown: string): string => {
   let paragraphBuffer: string[] = [];
   let listBuffer: string[] = [];
   let blockquoteBuffer: string[] = [];
+  let codeBuffer: string[] = [];
+  let codeLang = '';
+  let inCodeBlock = false;
   
   const flushParagraph = () => {
     if (paragraphBuffer.length > 0) {
@@ -136,10 +156,21 @@ export const markdownToHtml = (markdown: string): string => {
     }
   };
   
+  const flushCode = () => {
+    if (codeBuffer.length > 0) {
+      const code = codeBuffer.join('\n').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      const langLabel = codeLang ? `<div style="padding:2px 12px;background:#e5e7eb;font-size:0.75em;font-family:monospace;color:#6b7280;border-bottom:1px solid #d1d5db;">${codeLang}</div>` : '';
+      html += `<div style="margin:12px 0;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;">${langLabel}<pre style="padding:12px;background:#f9fafb;overflow-x:auto;margin:0;"><code style="font-family:monospace;font-size:0.875em;color:#1f2937;white-space:pre;">${code}</code></pre></div>`;
+      codeBuffer = [];
+      codeLang = '';
+    }
+  };
+
   const flushAll = () => {
     flushParagraph();
     flushList();
     flushBlockquote();
+    flushCode();
   };
   
   let i = 0;
@@ -147,6 +178,55 @@ export const markdownToHtml = (markdown: string): string => {
     const line = lines[i];
     const trimmedLine = line.trim();
     const isListItem = /^\s*(\*|-|\d+\.)\s/.test(line);
+
+    // ── Code fence: ``` ────────────────────────────────────────
+    if (trimmedLine.startsWith('```')) {
+      if (!inCodeBlock) {
+        flushAll();
+        codeLang = trimmedLine.slice(3).trim();
+        inCodeBlock = true;
+      } else {
+        inCodeBlock = false;
+        flushCode();
+      }
+      i++;
+      continue;
+    }
+    if (inCodeBlock) {
+      codeBuffer.push(line);
+      i++;
+      continue;
+    }
+
+    // ── Block math: $$ ... $$ (multi-line) ─────────────────────
+    if (trimmedLine === '$$') {
+      flushAll();
+      const mathLines: string[] = [];
+      i++;
+      while (i < lines.length && lines[i].trim() !== '$$') {
+        mathLines.push(lines[i]);
+        i++;
+      }
+      i++; // consume closing $$
+      html += renderBlockMath(mathLines.join('\n'));
+      continue;
+    }
+
+    // ── Block math: $$...$$ single line ────────────────────────
+    if (trimmedLine.startsWith('$$') && trimmedLine.endsWith('$$') && trimmedLine.length > 4) {
+      flushAll();
+      html += renderBlockMath(trimmedLine.slice(2, -2));
+      i++;
+      continue;
+    }
+
+    // ── Horizontal rule ────────────────────────────────────────
+    if (/^(---|\*\*\*|___)\s*$/.test(trimmedLine)) {
+      flushAll();
+      html += '<hr style="margin:16px 0;border:none;border-top:1px solid #d1d5db;" />';
+      i++;
+      continue;
+    }
 
     // Rule 0: Check if we are starting a table
     if (line.includes('|') && i + 1 < lines.length && isDelimiterRow(lines[i+1])) {
