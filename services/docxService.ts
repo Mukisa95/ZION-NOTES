@@ -1,9 +1,20 @@
 import mammoth from 'mammoth';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ExternalHyperlink, Table, TableRow, TableCell, WidthType, convertInchesToTwip, ImageRun, BorderStyle, ShadingType, TableLayoutType, VerticalAlignTable, Math as DocxMath, ImportedXmlComponent } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ExternalHyperlink, Table, TableRow, TableCell, WidthType, convertInchesToTwip, ImageRun, BorderStyle, ShadingType, TableLayoutType, VerticalAlignTable, Math as DocxMath, ImportedXmlComponent, XmlComponent } from 'docx';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import katex from 'katex';
-import { mml2omml } from 'mathml2omml';
+import { convertMathMl2Math } from '@hungknguyen/docx-math-converter';
+
+class MathWrapper extends XmlComponent {
+    private mathAST: any;
+    constructor(mathAST: any) {
+        super(mathAST.rootKey);
+        this.mathAST = mathAST;
+    }
+    prepForXml(context: any) {
+        return this.mathAST.prepForXml(context);
+    }
+}
 
 type WordListType = 'bullet' | 'number';
 
@@ -1570,11 +1581,10 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
                         const katexHtml = katex.renderToString(latex, { output: 'mathml' });
                         const match = katexHtml.match(/<math[^>]*>.*?<\/math>/is);
                         if (match) {
-                            // Strip semantics to avoid mml2omml warnings and potential errors
                             let mathml = match[0].replace(/<semantics[^>]*>/g, '').replace(/<\/semantics>/g, '').replace(/<annotation[^>]*>.*?<\/annotation>/is, '');
-                            const omml = mml2omml(mathml);
-                            const mathComponent = new ImportedXmlComponent(omml);
-                            return [new DocxMath({ children: [mathComponent as any] }) as any];
+                            const mathAST = convertMathMl2Math(mathml);
+                            const wrapper = new MathWrapper(mathAST);
+                            return [wrapper as any];
                         }
                     } catch (err) {
                         console.error('Error converting math to OMML:', err);
