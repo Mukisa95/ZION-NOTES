@@ -1,7 +1,8 @@
 import mammoth from 'mammoth';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ExternalHyperlink, Table, TableRow, TableCell, WidthType, convertInchesToTwip, ImageRun, BorderStyle, ShadingType, TableLayoutType, VerticalAlignTable } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ExternalHyperlink, Table, TableRow, TableCell, WidthType, convertInchesToTwip, ImageRun, BorderStyle, ShadingType, TableLayoutType, VerticalAlignTable, ImportedXmlComponent } from 'docx';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
+import { mml2omml } from 'mathml2omml';
 
 type WordListType = 'bullet' | 'number';
 
@@ -1554,6 +1555,16 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
                 return childRuns;
             case 'MATH':
             case 'math':
+                try {
+                    const mathmlString = el.outerHTML;
+                    const ommlString = mml2omml(mathmlString);
+                    if (ommlString) {
+                        return [new ImportedXmlComponent(ommlString) as any];
+                    }
+                } catch (e) {
+                    console.error('Failed to convert inline mathml to omml', e);
+                }
+                
                 const annotation = el.querySelector('annotation[encoding="application/x-tex"]');
                 if (annotation && annotation.textContent) {
                     const isBlock = el.parentElement?.tagName === 'DIV';
@@ -1894,6 +1905,25 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
                 break;
             case 'MATH':
             case 'math':
+                try {
+                    const mathmlString = htmlEl.outerHTML;
+                    const ommlString = mml2omml(mathmlString);
+                    if (ommlString) {
+                        elements.push(new Paragraph({
+                            children: [new ImportedXmlComponent(ommlString) as any],
+                            alignment: getAlignment(htmlEl) || AlignmentType.CENTER,
+                            spacing: {
+                                before: 120,
+                                after: 120,
+                                line: 276
+                            }
+                        }));
+                        break;
+                    }
+                } catch (e) {
+                    console.error('Failed to convert block mathml to omml', e);
+                }
+
                 const annotationElement = htmlEl.querySelector('annotation[encoding="application/x-tex"]');
                 if (annotationElement && annotationElement.textContent) {
                     const latex = annotationElement.textContent;
