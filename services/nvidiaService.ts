@@ -132,7 +132,7 @@ export const generateText = async (
 };
 
 const SYSTEM_PROMPT =
-  'You are a helpful assistant for a note-taking app. Be concise and clear in your responses. Always use rich Markdown formatting (like **bold**, *italics*, and bulleted or numbered lists) to enhance readability and structure. Use indentation for nested lists to create clear hierarchies.';
+  'You are a helpful assistant for a note-taking app. Be concise and clear in your responses. Always use rich Markdown formatting (like **bold**, *italics*, and bulleted or numbered lists) to enhance readability and structure. Use indentation for nested lists to create clear hierarchies.\n\nCRITICAL MATHEMATICS RULES:\n- Use LaTeX for ALL mathematical expressions. Wrap inline expressions with single dollar signs: $expression$. Wrap standalone equations with double dollar signs on their own lines: $$ expression $$.\n- NEVER write math as plain English prose. Use proper LaTeX symbols (e.g., \\frac, \\sqrt, \\times).';
 
 type ConversationMessage = {
   role: 'system' | 'user' | 'assistant';
