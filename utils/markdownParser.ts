@@ -20,6 +20,7 @@ export const parse = (text: string): string => {
           displayMode: false,
           throwOnError: false,
           strict: false,
+          output: 'mathml'
         });
       } catch {
         return part;

@@ -10,8 +10,9 @@ const renderBlockMath = (latex: string): string => {
       displayMode: true,
       throwOnError: false,
       strict: false,
+      output: 'mathml'
     });
-    return `<div style="overflow-x:auto;padding:12px 16px;margin:12px 0;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;text-align:center;">${rendered}</div>`;
+    return `<div style="overflow-x:auto;padding:12px 16px;margin:12px 0;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;text-align:center;font-size:1.2em;">${rendered}</div>`;
   } catch {
     return `<pre style="padding:8px;background:#f9fafb;border-radius:6px;overflow-x:auto;">${latex}</pre>`;
   }
