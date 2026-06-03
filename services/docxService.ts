@@ -1,5 +1,5 @@
 import mammoth from 'mammoth';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ExternalHyperlink, Table, TableRow, TableCell, WidthType, convertInchesToTwip, ImageRun, BorderStyle, ShadingType, TableLayoutType, VerticalAlignTable, Math as DocxMath, ImportedXmlComponent, XmlComponent } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, ExternalHyperlink, Table, TableRow, TableCell, WidthType, convertInchesToTwip, ImageRun, BorderStyle, ShadingType, TableLayoutType, VerticalAlignTable, XmlComponent } from 'docx';
 import { saveAs } from 'file-saver';
 import JSZip from 'jszip';
 import katex from 'katex';
@@ -1935,12 +1935,11 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
                         const katexHtml = katex.renderToString(latex, { output: 'mathml' });
                         const match = katexHtml.match(/<math[^>]*>.*?<\/math>/is);
                         if (match) {
-                            // Strip semantics
                             let mathml = match[0].replace(/<semantics[^>]*>/g, '').replace(/<\/semantics>/g, '').replace(/<annotation[^>]*>.*?<\/annotation>/is, '');
-                            const omml = mml2omml(mathml);
-                            const mathComponent = new ImportedXmlComponent(omml);
+                            const mathAST = convertMathMl2Math(mathml);
+                            const wrapper = new MathWrapper(mathAST);
                             elements.push(new Paragraph({
-                                children: [new DocxMath({ children: [mathComponent as any] }) as any],
+                                children: [wrapper as any],
                                 alignment: getAlignment(htmlEl) || AlignmentType.CENTER,
                                 spacing: {
                                     before: 120,
@@ -1954,7 +1953,7 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
                         console.error('Error converting math block to OMML:', err);
                     }
                     
-                    // Fallback
+                    // Fallback to plain text if conversion fails
                     elements.push(new Paragraph({
                         children: [new TextRun({ 
                             text: `$$ ${latex} $$`, 
