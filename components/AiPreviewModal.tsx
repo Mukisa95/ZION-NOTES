@@ -83,9 +83,9 @@ export const AiPreviewModal: React.FC<AiPreviewModalProps> = ({
       let i = 0;
       const typingInterval = setInterval(() => {
         if (i < content.length) {
-          const chunk = content.substring(i, i + 15);
+          const chunk = content.substring(i, i + 40);
           setDisplayedContent(prev => prev + chunk);
-          i += 15;
+          i += 40;
         } else {
           clearInterval(typingInterval);
           setIsTyping(false);
@@ -217,16 +217,10 @@ export const AiPreviewModal: React.FC<AiPreviewModalProps> = ({
 
     return (
       <div className="p-6">
-        {isTyping ? (
-          <div className="prose prose-sm lg:prose-base dark:prose-invert max-w-none prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-headings:my-3 prose-li:my-1 whitespace-pre-wrap">
-            {displayedContent}
-          </div>
-        ) : (
-          <MarkdownRenderer
-            content={content}
-            className="prose prose-sm lg:prose-base dark:prose-invert max-w-none prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-headings:my-3 prose-li:my-1"
-          />
-        )}
+        <MarkdownRenderer
+          content={isTyping ? displayedContent : content}
+          className="prose prose-sm lg:prose-base dark:prose-invert max-w-none prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-headings:my-3 prose-li:my-1"
+        />
       </div>
     );
   };
