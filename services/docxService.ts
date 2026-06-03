@@ -1552,6 +1552,18 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
                     }) as any];
                 }
                 return childRuns;
+            case 'MATH':
+                const annotation = el.querySelector('annotation[encoding="application/x-tex"]');
+                if (annotation && annotation.textContent) {
+                    const isBlock = el.parentElement?.tagName === 'DIV';
+                    const latex = annotation.textContent;
+                    return [new TextRun({ 
+                        text: isBlock ? `$$ ${latex} $$` : `$${latex}$`, 
+                        font: 'Consolas',
+                        size: getFontSize(el) || 22,
+                    })];
+                }
+                return childRuns;
             default:
                 return childRuns;
         }
