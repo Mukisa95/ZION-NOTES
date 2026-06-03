@@ -1891,6 +1891,25 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
             case 'BR':
                 elements.push(new Paragraph({ children: [new TextRun({ text: '' })] }));
                 break;
+            case 'MATH':
+                const annotation = htmlEl.querySelector('annotation[encoding="application/x-tex"]');
+                if (annotation && annotation.textContent) {
+                    const latex = annotation.textContent;
+                    elements.push(new Paragraph({
+                        children: [new TextRun({ 
+                            text: `$$ ${latex} $$`, 
+                            font: 'Consolas',
+                            size: 22,
+                        })],
+                        alignment: getAlignment(htmlEl) || AlignmentType.CENTER,
+                        spacing: {
+                            before: 120,
+                            after: 120,
+                            line: 276
+                        }
+                    }));
+                }
+                break;
             default:
                 // For divs and other containers, process children
                 if (htmlEl.children.length > 0) {
