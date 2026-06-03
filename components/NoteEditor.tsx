@@ -762,16 +762,47 @@ ${selectedText}
 ---`;
         break;
       case AiAction.CAL_DIRECT:
-        prompt = `You are solving mathematics questions from the provided text and images.
+        prompt = `You are a mathematics solver. Solve every math question in the provided text using strict mathematical structure and LaTeX notation.
 
-**Output Requirements:**
-- Create a main heading: "### CAL Direct".
-- For each math question you find:
-  - Restate the question in **bold**.
-  - Show all relevant calculations and proper mathematical workings in order.
-  - Present the final answer clearly on its own line as **Final Answer:**.
-- Keep the response concise and focused on correct mathematics workings.
-- If information is missing, state what is missing before attempting assumptions.
+**CRITICAL FORMATTING RULES — FOLLOW EXACTLY:**
+- Use LaTeX for ALL mathematical expressions. Wrap inline expressions with single dollar signs: $expression$. Wrap standalone equations or multi-line workings with double dollar signs on their own lines:
+  $$
+  expression
+  $$
+- NEVER write math as plain English prose (e.g., do NOT write "x squared plus 2x" — write $x^2 + 2x$ instead).
+- NEVER use symbols like ^, *, / raw in text — always put them inside LaTeX delimiters.
+- Use proper LaTeX commands: \\frac{a}{b} for fractions, \\sqrt{x} for roots, \\times for multiplication, \\div for division, \\pm for plus-minus, \\leq \\geq for inequalities, \\int for integrals, \\sum for summations, etc.
+
+**Output Structure for EACH question:**
+
+**[Q1] [Restate the question exactly]**
+
+**Given:**
+List all known values using LaTeX, e.g., $a = 5$, $b = 3$
+
+**Formula / Method:**
+State the formula or method being applied:
+$$
+\\text{formula here}
+$$
+
+**Working:**
+Show each calculation step on its own line inside a block:
+$$
+\\text{Step 1: } \\ldots
+$$
+$$
+\\text{Step 2: } \\ldots
+$$
+
+**Final Answer:**
+$$
+\\boxed{answer}
+$$
+
+---
+
+Create a main heading: "### CAL Direct" at the top. Separate each question with ---. Be concise. If data is missing, state it before proceeding.
 
 **Math Questions to Solve:**
 ---
@@ -779,17 +810,58 @@ ${selectedText}
 ---`;
         break;
       case AiAction.CAL_EXPLAIN:
-        prompt = `You are solving mathematics questions from the provided text and images with full instructional detail.
+        prompt = `You are a mathematics teacher. Solve every math question in the provided text with full step-by-step explanation using strict mathematical structure and LaTeX notation.
 
-**Output Requirements:**
-- Create a main heading: "### CAL Explain".
-- For each math question you find:
-  - Restate the question in **bold**.
-  - Show all calculations and proper mathematical workings step by step.
-  - For every step, include a short explanation of *why* that step is valid.
-  - Present the final answer clearly on its own line as **Final Answer:**.
-- Ensure explanations are clear enough for learning, not just solving.
-- If information is missing, state what is missing before attempting assumptions.
+**CRITICAL FORMATTING RULES — FOLLOW EXACTLY:**
+- Use LaTeX for ALL mathematical expressions. Wrap inline expressions with single dollar signs: $expression$. Wrap standalone equations with double dollar signs on their own lines:
+  $$
+  expression
+  $$
+- NEVER write math as plain English prose (e.g., do NOT write "two times three equals six" — write $2 \\times 3 = 6$ instead).
+- NEVER use raw symbols like ^, *, / in running text — always inside LaTeX.
+- Use proper LaTeX: \\frac{a}{b} for fractions, \\sqrt{x} for roots, \\times for multiplication, \\div for division, \\pm for plus-minus, \\leq \\geq for inequalities, \\int for integrals, \\sum for summations, \\vec{v} for vectors, etc.
+
+**Output Structure for EACH question:**
+
+**[Q1] [Restate the question exactly]**
+
+**Given:**
+List all known values using LaTeX: $a = 5$, $b = 3$
+
+**Concept / Formula:**
+Name the concept and state the formula:
+$$
+\\text{formula}
+$$
+> *Why this formula?* — brief explanation of the mathematical principle.
+
+**Step-by-Step Working:**
+
+1. **Step 1 — [Name of step]:**
+$$
+\\text{mathematical operation}
+$$
+> *Explanation:* why this step is valid / what mathematical rule is applied.
+
+2. **Step 2 — [Name of step]:**
+$$
+\\text{mathematical operation}
+$$
+> *Explanation:* ...
+
+*(Continue for all steps)*
+
+**Verification (if applicable):**
+Show a check that confirms the answer is correct.
+
+**Final Answer:**
+$$
+\\boxed{answer}
+$$
+
+---
+
+Create a main heading: "### CAL Explain" at the top. Separate each question with ---. Explanations must be clear for a student learning the concept, not just reciting steps.
 
 **Math Questions to Solve:**
 ---
