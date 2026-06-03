@@ -1553,6 +1553,7 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
                 }
                 return childRuns;
             case 'MATH':
+            case 'math':
                 const annotation = el.querySelector('annotation[encoding="application/x-tex"]');
                 if (annotation && annotation.textContent) {
                     const isBlock = el.parentElement?.tagName === 'DIV';
@@ -1892,9 +1893,10 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
                 elements.push(new Paragraph({ children: [new TextRun({ text: '' })] }));
                 break;
             case 'MATH':
-                const annotation = htmlEl.querySelector('annotation[encoding="application/x-tex"]');
-                if (annotation && annotation.textContent) {
-                    const latex = annotation.textContent;
+            case 'math':
+                const annotationElement = htmlEl.querySelector('annotation[encoding="application/x-tex"]');
+                if (annotationElement && annotationElement.textContent) {
+                    const latex = annotationElement.textContent;
                     elements.push(new Paragraph({
                         children: [new TextRun({ 
                             text: `$$ ${latex} $$`, 
