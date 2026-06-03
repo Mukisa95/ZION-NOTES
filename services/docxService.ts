@@ -1523,6 +1523,13 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
                     font: 'Calibri'
                 })];
             case 'SPAN':
+                if (el.classList.contains('katex-html')) {
+                    return [];
+                }
+                if (el.classList.contains('katex') || el.classList.contains('katex-mathml')) {
+                    return childRuns;
+                }
+                
                 const color = el.style.color;
                 const fontFamily = el.style.fontFamily ? el.style.fontFamily.split(',')[0].replace(/['"]/g, '').trim() : 'Calibri';
                 const runOptions: any = { 
@@ -1556,7 +1563,10 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
             case 'MATH':
             case 'math':
                 try {
-                    const mathmlString = el.outerHTML;
+                    let mathmlString = el.outerHTML;
+                    if (!mathmlString.includes('xmlns=')) {
+                        mathmlString = mathmlString.replace('<math', '<math xmlns="http://www.w3.org/1998/Math/MathML"');
+                    }
                     const ommlString = mml2omml(mathmlString);
                     if (ommlString) {
                         return [new ImportedXmlComponent(ommlString) as any];
@@ -1565,7 +1575,7 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
                     console.error('Failed to convert inline mathml to omml', e);
                 }
                 
-                const annotation = el.querySelector('annotation[encoding="application/x-tex"]');
+                const annotation = el.querySelector('annotation');
                 if (annotation && annotation.textContent) {
                     const isBlock = el.parentElement?.tagName === 'DIV';
                     const latex = annotation.textContent;
@@ -1575,7 +1585,7 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
                         size: getFontSize(el) || 22,
                     })];
                 }
-                return childRuns;
+                return [];
             default:
                 return childRuns;
         }
