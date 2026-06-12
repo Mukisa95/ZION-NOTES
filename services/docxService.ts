@@ -1926,6 +1926,42 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
             case 'BR':
                 elements.push(new Paragraph({ children: [new TextRun({ text: '' })] }));
                 break;
+            case 'IMG': {
+                const imgEl = htmlEl as HTMLImageElement;
+                const src = imgEl.src || imgEl.getAttribute('src') || '';
+                if (src.startsWith('data:image/')) {
+                    try {
+                        const base64 = src.split(',')[1];
+                        const mimeMatch = src.match(/data:(image\/\w+);/);
+                        const mimeType = (mimeMatch?.[1] || 'image/png') as 'image/png' | 'image/jpeg' | 'image/gif';
+                        // Determine pixel dimensions
+                        const svgW = parseInt(imgEl.getAttribute('data-svg-width') || imgEl.getAttribute('width') || '400');
+                        const svgH = parseInt(imgEl.getAttribute('data-svg-height') || imgEl.getAttribute('height') || '250');
+                        // Scale to fit ~16cm wide (max usable width in a docx with 1" margins = ~9144 EMU/px at 96dpi)
+                        const maxDocxW = 500; // px at 96dpi ≈ ~13.2 cm — fits comfortably
+                        const ratio = Math.min(1, maxDocxW / svgW);
+                        const finalW = Math.round(svgW * ratio);
+                        const finalH = Math.round(svgH * ratio);
+                        elements.push(new Paragraph({
+                            children: [new ImageRun({
+                                data: base64,
+                                transformation: { width: finalW, height: finalH },
+                                type: mimeType,
+                            } as any)],
+                            alignment: AlignmentType.CENTER,
+                            spacing: { before: 120, after: 120 },
+                        }));
+                    } catch (imgErr) {
+                        console.warn('Could not embed image in docx:', imgErr);
+                    }
+                }
+                break;
+            }
+            case 'SVG':
+            case 'svg':
+                // SVGs are pre-converted to PNG <img> tags before this function runs.
+                // If one somehow slips through, skip it silently to avoid corrupting the document.
+                break;
             case 'MATH':
             case 'math':
                 const annotationElement = htmlEl.querySelector('annotation');
@@ -1993,6 +2029,80 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
 };
 
 /**
+ * Rasterizes every <svg> element in an HTML string to a PNG data-URL
+ * and replaces it with an <img> tag. This runs before htmlToDocxElements
+ * so the synchronous processElement switch can handle the result via
+ * the IMG case below.
+ */
+const svgsToPng = async (html: string): Promise<string> => {
+    const tempDiv = document.createElement('div');
+    tempDiv.style.cssText = 'position:fixed;left:-9999px;top:-9999px;visibility:hidden;';
+    document.body.appendChild(tempDiv);
+    tempDiv.innerHTML = html;
+
+    const svgs = Array.from(tempDiv.querySelectorAll('svg'));
+    await Promise.all(svgs.map(async (svg) => {
+        try {
+            // Ensure the SVG has explicit dimensions from viewBox if not already set
+            if (!svg.hasAttribute('width') || !svg.hasAttribute('height')) {
+                const vb = svg.viewBox?.baseVal;
+                if (vb && vb.width > 0) {
+                    svg.setAttribute('width', String(Math.min(vb.width, 600)));
+                    svg.setAttribute('height', String(Math.round(vb.height * (Math.min(vb.width, 600) / vb.width))));
+                } else {
+                    svg.setAttribute('width', '500');
+                    svg.setAttribute('height', '300');
+                }
+            }
+
+            const w = parseFloat(svg.getAttribute('width') || '500');
+            const h = parseFloat(svg.getAttribute('height') || '300');
+
+            // Serialize SVG to blob URL
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(svgBlob);
+
+            // Draw onto canvas
+            const canvas = document.createElement('canvas');
+            const scale = 2; // retina quality
+            canvas.width = w * scale;
+            canvas.height = h * scale;
+            const ctx = canvas.getContext('2d')!;
+            ctx.scale(scale, scale);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, w, h);
+
+            await new Promise<void>((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => { ctx.drawImage(img, 0, 0, w, h); resolve(); };
+                img.onerror = reject;
+                img.src = url;
+            });
+
+            URL.revokeObjectURL(url);
+
+            const dataUrl = canvas.toDataURL('image/png');
+            const replacement = document.createElement('img');
+            replacement.src = dataUrl;
+            replacement.setAttribute('data-svg-width', String(Math.round(w)));
+            replacement.setAttribute('data-svg-height', String(Math.round(h)));
+            svg.parentNode?.replaceChild(replacement, svg);
+        } catch (err) {
+            console.warn('SVG rasterization failed for one diagram:', err);
+            // Replace with a placeholder text instead of corrupting the document
+            const placeholder = document.createElement('p');
+            placeholder.textContent = '[Diagram]';
+            svg.parentNode?.replaceChild(placeholder, svg);
+        }
+    }));
+
+    const result = tempDiv.innerHTML;
+    document.body.removeChild(tempDiv);
+    return result;
+};
+
+/**
  * Converts RGB/RGBA color to hex format for Word
  */
 const rgbToHex = (rgb: string): string => {
@@ -2016,7 +2126,10 @@ const rgbToHex = (rgb: string): string => {
  */
 export const exportAsDocx = async (htmlContent: string, filename: string, fileHandle?: any) => {
     try {
-        const docElements = htmlToDocxElements(htmlContent);
+        // Pre-process: rasterize any <svg> diagrams to PNG <img> tags so the
+        // synchronous docx builder can embed them as ImageRun objects.
+        const processedHtml = await svgsToPng(htmlContent);
+        const docElements = htmlToDocxElements(processedHtml);
         
         const doc = new Document({
             numbering: {

@@ -63,6 +63,7 @@ const A4_STYLES = `
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
+            svg { break-inside: avoid; }
         }
         body {
             font-family: sans-serif;
@@ -77,7 +78,8 @@ const A4_STYLES = `
             background-color: white;
             color: black;
         }
-        img { max-width: 100%; height: auto; }
+        img { max-width: 100%; height: auto; display: block; margin: 0.5em auto; }
+        svg { max-width: 100%; height: auto; display: block; margin: 0.5em auto; overflow: visible; }
         table { border-collapse: collapse; width: 100%; margin: 1em 0; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background-color: #f2f2f2; }
@@ -85,6 +87,9 @@ const A4_STYLES = `
         .dark, [class*="dark:"] {
             display: none;
         }
+        /* KaTeX math rendering */
+        .katex-display { margin: 1em 0; overflow-x: auto; }
+        .katex { font-size: 1.1em; }
     </style>
 `;
 
