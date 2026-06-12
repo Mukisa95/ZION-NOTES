@@ -11,7 +11,7 @@ import {
   Timestamp 
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { SavedDocument } from './documentStorage';
+import { SavedDocument, upsertDocument, deleteDocument, getDocument } from './documentStorage';
 import { enqueueSyncOperation } from './offlineSyncQueue';
 
 // Firestore collection name
@@ -49,8 +49,9 @@ const compressContent = (html: string): string => {
 };
 
 /**
- * Detect whether a Firestore error is network-related.
- * Firebase throws 'unavailable', 'failed-precondition', or plain network errors offline.
+ * Detect whether a Firestore error is network-related or a transient
+ * internal assertion failure (which can occur when concurrent getDocs
+ * calls corrupt the internal watch-stream state).
  */
 const isNetworkError = (error: any): boolean => {
   if (!navigator.onLine) return true;
@@ -59,7 +60,11 @@ const isNetworkError = (error: any): boolean => {
     msg.includes('unavailable') ||
     msg.includes('network') ||
     msg.includes('failed to fetch') ||
-    msg.includes('offline')
+    msg.includes('offline') ||
+    // Firestore internal assertion failures from concurrent stream opens
+    msg.includes('internal assertion failed') ||
+    msg.includes('target id already exists') ||
+    msg.includes('unexpected state')
   );
 };
 
@@ -67,6 +72,9 @@ const isNetworkError = (error: any): boolean => {
 export const saveDocumentToFirestore = async (userId: string, document: SavedDocument): Promise<void> => {
   try {
     console.log('Firestore save attempt:', { userId, documentId: document.id, documentName: document.name });
+    
+    // Save locally first for offline-first responsiveness
+    await upsertDocument(document);
     
     // Check content size and compress if needed
     let content = document.content;
@@ -190,6 +198,25 @@ export const getAllDocumentsFromFirestore = async (userId: string): Promise<Save
 // Update document in Firestore
 export const updateDocumentInFirestore = async (userId: string, documentId: string, updates: Partial<SavedDocument>): Promise<void> => {
   try {
+    // Save locally first for offline-first responsiveness
+    const localDoc = await getDocument(documentId);
+    if (localDoc) {
+      await upsertDocument({
+        ...localDoc,
+        ...updates,
+        updatedAt: updates.updatedAt || Date.now()
+      } as SavedDocument);
+    } else {
+      await upsertDocument({
+        id: documentId,
+        name: updates.name || '',
+        content: updates.content || '',
+        wordCount: updates.wordCount || 0,
+        ...updates,
+        updatedAt: updates.updatedAt || Date.now()
+      } as SavedDocument);
+    }
+
     const docRef = doc(db, DOCUMENTS_COLLECTION, documentId);
     const docSnap = await getDoc(docRef);
     
@@ -249,6 +276,9 @@ export const updateDocumentInFirestore = async (userId: string, documentId: stri
 // Delete document from Firestore
 export const deleteDocumentFromFirestore = async (userId: string, documentId: string): Promise<void> => {
   try {
+    // Delete locally first
+    await deleteDocument(documentId);
+
     const docRef = doc(db, DOCUMENTS_COLLECTION, documentId);
     const docSnap = await getDoc(docRef);
     

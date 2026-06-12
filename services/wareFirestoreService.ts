@@ -11,14 +11,16 @@ import {
   Timestamp 
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { Ware } from './wareStorage';
+import { Ware, upsertWare, deleteWare, getWare } from './wareStorage';
 import { enqueueSyncOperation } from './offlineSyncQueue';
 
 // Firestore collection name
 const WARES_COLLECTION = 'wares';
 
 /**
- * Detect whether a Firestore error is network-related.
+ * Detect whether a Firestore error is network-related or a transient
+ * internal assertion failure (which can occur when concurrent getDocs
+ * calls corrupt the internal watch-stream state).
  */
 const isNetworkError = (error: any): boolean => {
   if (!navigator.onLine) return true;
@@ -27,7 +29,11 @@ const isNetworkError = (error: any): boolean => {
     msg.includes('unavailable') ||
     msg.includes('network') ||
     msg.includes('failed to fetch') ||
-    msg.includes('offline')
+    msg.includes('offline') ||
+    // Firestore internal assertion failures from concurrent stream opens
+    msg.includes('internal assertion failed') ||
+    msg.includes('target id already exists') ||
+    msg.includes('unexpected state')
   );
 };
 
@@ -61,6 +67,8 @@ export const deleteWareFromFirestoreRaw = async (userId: string, wareId: string)
 // Save WARE to Firestore
 export const saveWareToFirestore = async (userId: string, ware: Ware): Promise<void> => {
   try {
+    // Save locally first for offline-first responsiveness
+    await upsertWare(ware);
     await saveWareToFirestoreRaw(userId, ware);
   } catch (error) {
     if (isNetworkError(error)) {
@@ -181,6 +189,26 @@ export const getAllWaresFromFirestore = async (userId: string): Promise<Ware[]> 
 // Update WARE in Firestore
 export const updateWareInFirestore = async (userId: string, wareId: string, updates: Partial<Ware>): Promise<void> => {
   try {
+    // Save locally first for offline-first responsiveness
+    const localWare = await getWare(wareId);
+    if (localWare) {
+      const updatedWare = {
+        ...localWare,
+        ...updates,
+        updatedAt: updates.updatedAt || Date.now()
+      };
+      await upsertWare(updatedWare);
+    } else {
+      await upsertWare({
+        id: wareId,
+        name: updates.name || '',
+        documentIds: updates.documentIds || [],
+        color: updates.color || 'purple',
+        createdAt: Date.now(),
+        updatedAt: updates.updatedAt || Date.now()
+      } as Ware);
+    }
+
     const docRef = doc(db, WARES_COLLECTION, wareId);
     const docSnap = await getDoc(docRef);
     
@@ -220,6 +248,9 @@ export const updateWareInFirestore = async (userId: string, wareId: string, upda
 // Delete WARE from Firestore
 export const deleteWareFromFirestore = async (userId: string, wareId: string): Promise<void> => {
   try {
+    // Delete locally first
+    await deleteWare(wareId);
+
     const docRef = doc(db, WARES_COLLECTION, wareId);
     const docSnap = await getDoc(docRef);
     

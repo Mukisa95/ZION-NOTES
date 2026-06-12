@@ -1,7 +1,9 @@
 /**
  * WARE (Folder) Storage Service
- * Manages saving and loading WARES with IndexedDB
+ * Manages saving and loading WARES with IndexedDB (unified DB via db.ts)
  */
+
+import { getDB, STORE_WARES } from './db';
 
 export interface Ware {
     id: string;
@@ -19,48 +21,12 @@ export interface WareUpdates {
     updatedAt?: number;
 }
 
-const DB_NAME = 'AINoteTakerDB';
-const STORE_NAME = 'wares';
-const DB_VERSION = 2; // Increment to add wares store
-
-let db: IDBDatabase | null = null;
-
-/**
- * Initialize IndexedDB with wares store
- */
-const initDB = (): Promise<IDBDatabase> => {
-    return new Promise((resolve, reject) => {
-        if (db) {
-            resolve(db);
-            return;
-        }
-
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => {
-            db = request.result;
-            resolve(db);
-        };
-
-        request.onupgradeneeded = (event) => {
-            const database = (event.target as IDBOpenDBRequest).result;
-            
-            if (!database.objectStoreNames.contains(STORE_NAME)) {
-                const objectStore = database.createObjectStore(STORE_NAME, { keyPath: 'id' });
-                objectStore.createIndex('name', 'name', { unique: false });
-                objectStore.createIndex('updatedAt', 'updatedAt', { unique: false });
-            }
-        };
-    });
-};
-
 /**
  * Save a WARE
  */
 export const saveWare = async (name: string, documentIds: string[] = [], color?: string): Promise<Ware> => {
-    const database = await initDB();
-    
+    const database = await getDB();
+
     const now = Date.now();
     const ware: Ware = {
         id: `ware_${now}_${Math.random().toString(36).substr(2, 9)}`,
@@ -72,8 +38,8 @@ export const saveWare = async (name: string, documentIds: string[] = [], color?:
     };
 
     return new Promise((resolve, reject) => {
-        const transaction = database.transaction([STORE_NAME], 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
+        const transaction = database.transaction([STORE_WARES], 'readwrite');
+        const store = transaction.objectStore(STORE_WARES);
         const request = store.add(ware);
 
         request.onsuccess = () => resolve(ware);
@@ -90,11 +56,11 @@ export const updateWare = async (
     documentIds?: string[],
     color?: string
 ): Promise<Ware> => {
-    const database = await initDB();
+    const database = await getDB();
 
     return new Promise((resolve, reject) => {
-        const transaction = database.transaction([STORE_NAME], 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
+        const transaction = database.transaction([STORE_WARES], 'readwrite');
+        const store = transaction.objectStore(STORE_WARES);
         const getRequest = store.get(id);
 
         getRequest.onsuccess = () => {
@@ -128,11 +94,11 @@ export const updateWare = async (
  * Get all WARES
  */
 export const getAllWares = async (): Promise<Ware[]> => {
-    const database = await initDB();
+    const database = await getDB();
 
     return new Promise((resolve, reject) => {
-        const transaction = database.transaction([STORE_NAME], 'readonly');
-        const store = transaction.objectStore(STORE_NAME);
+        const transaction = database.transaction([STORE_WARES], 'readonly');
+        const store = transaction.objectStore(STORE_WARES);
         const request = store.getAll();
 
         request.onsuccess = () => {
@@ -149,11 +115,11 @@ export const getAllWares = async (): Promise<Ware[]> => {
  * Get a specific WARE by ID
  */
 export const getWare = async (id: string): Promise<Ware | null> => {
-    const database = await initDB();
+    const database = await getDB();
 
     return new Promise((resolve, reject) => {
-        const transaction = database.transaction([STORE_NAME], 'readonly');
-        const store = transaction.objectStore(STORE_NAME);
+        const transaction = database.transaction([STORE_WARES], 'readonly');
+        const store = transaction.objectStore(STORE_WARES);
         const request = store.get(id);
 
         request.onsuccess = () => resolve(request.result || null);
@@ -165,12 +131,28 @@ export const getWare = async (id: string): Promise<Ware | null> => {
  * Delete a WARE
  */
 export const deleteWare = async (id: string): Promise<void> => {
-    const database = await initDB();
+    const database = await getDB();
 
     return new Promise((resolve, reject) => {
-        const transaction = database.transaction([STORE_NAME], 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
+        const transaction = database.transaction([STORE_WARES], 'readwrite');
+        const store = transaction.objectStore(STORE_WARES);
         const request = store.delete(id);
+
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+};
+
+/**
+ * Upsert a WARE (used when merging Firestore data locally)
+ */
+export const upsertWare = async (ware: Ware): Promise<void> => {
+    const database = await getDB();
+
+    return new Promise((resolve, reject) => {
+        const transaction = database.transaction([STORE_WARES], 'readwrite');
+        const store = transaction.objectStore(STORE_WARES);
+        const request = store.put(ware);
 
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);

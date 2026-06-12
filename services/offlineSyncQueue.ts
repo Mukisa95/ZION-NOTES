@@ -1,9 +1,10 @@
 /**
  * Offline Sync Queue
  * Records Firestore operations attempted while offline and replays them on reconnect.
- * Uses a dedicated 'syncQueue' object store in the existing AINoteTakerDB.
+ * Uses the unified AINoteTakerDB (via db.ts) so DB version is always consistent.
  */
 
+import { getDB, STORE_SYNC_QUEUE } from './db';
 import {
   saveDocumentToFirestore,
   updateDocumentInFirestore,
@@ -26,43 +27,6 @@ export interface SyncQueueItem {
   timestamp: number;
 }
 
-const DB_NAME = 'AINoteTakerDB';
-const QUEUE_STORE = 'syncQueue';
-// Current DB version — must match or exceed existing version
-const DB_VERSION = 3;
-
-let db: IDBDatabase | null = null;
-
-// ---------------------------------------------------------------------------
-// DB Init
-// ---------------------------------------------------------------------------
-const initQueueDB = (): Promise<IDBDatabase> => {
-  return new Promise((resolve, reject) => {
-    if (db) {
-      resolve(db);
-      return;
-    }
-
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => {
-      db = request.result;
-      resolve(db);
-    };
-
-    request.onupgradeneeded = (event) => {
-      const database = (event.target as IDBOpenDBRequest).result;
-
-      // Ensure the syncQueue store exists; earlier stores are preserved automatically.
-      if (!database.objectStoreNames.contains(QUEUE_STORE)) {
-        const store = database.createObjectStore(QUEUE_STORE, { keyPath: 'id' });
-        store.createIndex('timestamp', 'timestamp', { unique: false });
-      }
-    };
-  });
-};
-
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
@@ -73,7 +37,7 @@ export const enqueueSyncOperation = async (
   collection: SyncCollection,
   payload: any
 ): Promise<void> => {
-  const database = await initQueueDB();
+  const database = await getDB();
   const item: SyncQueueItem = {
     id: `sync_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     operation,
@@ -83,8 +47,8 @@ export const enqueueSyncOperation = async (
   };
 
   return new Promise((resolve, reject) => {
-    const tx = database.transaction([QUEUE_STORE], 'readwrite');
-    const store = tx.objectStore(QUEUE_STORE);
+    const tx = database.transaction([STORE_SYNC_QUEUE], 'readwrite');
+    const store = tx.objectStore(STORE_SYNC_QUEUE);
     const req = store.add(item);
     req.onsuccess = () => resolve();
     req.onerror = () => reject(req.error);
@@ -93,11 +57,11 @@ export const enqueueSyncOperation = async (
 
 /** How many operations are waiting to sync. */
 export const getPendingCount = async (): Promise<number> => {
-  const database = await initQueueDB();
+  const database = await getDB();
 
   return new Promise((resolve, reject) => {
-    const tx = database.transaction([QUEUE_STORE], 'readonly');
-    const store = tx.objectStore(QUEUE_STORE);
+    const tx = database.transaction([STORE_SYNC_QUEUE], 'readonly');
+    const store = tx.objectStore(STORE_SYNC_QUEUE);
     const req = store.count();
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -106,11 +70,11 @@ export const getPendingCount = async (): Promise<number> => {
 
 /** Get all pending items sorted by timestamp ascending. */
 const getAllPendingItems = async (): Promise<SyncQueueItem[]> => {
-  const database = await initQueueDB();
+  const database = await getDB();
 
   return new Promise((resolve, reject) => {
-    const tx = database.transaction([QUEUE_STORE], 'readonly');
-    const store = tx.objectStore(QUEUE_STORE);
+    const tx = database.transaction([STORE_SYNC_QUEUE], 'readonly');
+    const store = tx.objectStore(STORE_SYNC_QUEUE);
     const req = store.getAll();
     req.onsuccess = () => {
       const items = (req.result as SyncQueueItem[]).sort(
@@ -124,11 +88,11 @@ const getAllPendingItems = async (): Promise<SyncQueueItem[]> => {
 
 /** Remove a successfully replayed item from the queue. */
 const dequeueItem = async (id: string): Promise<void> => {
-  const database = await initQueueDB();
+  const database = await getDB();
 
   return new Promise((resolve, reject) => {
-    const tx = database.transaction([QUEUE_STORE], 'readwrite');
-    const store = tx.objectStore(QUEUE_STORE);
+    const tx = database.transaction([STORE_SYNC_QUEUE], 'readwrite');
+    const store = tx.objectStore(STORE_SYNC_QUEUE);
     const req = store.delete(id);
     req.onsuccess = () => resolve();
     req.onerror = () => reject(req.error);
@@ -187,11 +151,11 @@ export const flushSyncQueue = async (
 
 /** Clear the entire queue (use with caution — data loss if not already synced). */
 export const clearSyncQueue = async (): Promise<void> => {
-  const database = await initQueueDB();
+  const database = await getDB();
 
   return new Promise((resolve, reject) => {
-    const tx = database.transaction([QUEUE_STORE], 'readwrite');
-    const store = tx.objectStore(QUEUE_STORE);
+    const tx = database.transaction([STORE_SYNC_QUEUE], 'readwrite');
+    const store = tx.objectStore(STORE_SYNC_QUEUE);
     const req = store.clear();
     req.onsuccess = () => resolve();
     req.onerror = () => reject(req.error);

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { PlusIcon, DocumentIcon, TrashIcon, SearchIcon, CloudIcon, SettingsIcon, FolderIcon, CheckIcon, EditIcon, BeakerIcon } from './icons';
 import { AiProvider, ResearchProject } from '../types';
 import { getAllResearchProjectsFromFirestore, deleteResearchProjectFromFirestore } from '../services/researchFirestoreService';
-import { SavedDocument, getAllDocuments, saveDocument, updateDocument } from '../services/documentStorage';
+import { SavedDocument, getAllDocuments, saveDocument, updateDocument, upsertDocument } from '../services/documentStorage';
 import { getAllDocumentsFromFirestore, deleteDocumentFromFirestore, saveDocumentToFirestore } from '../services/firestoreService';
 import { UserProfile } from './UserProfile';
 import { AuthModal } from './AuthModal';
@@ -11,7 +11,7 @@ import { ProviderModal } from './ProviderModal';
 import { CreateWareModal } from './CreateWareModal';
 import { AddDocumentsToWareModal } from './AddDocumentsToWareModal';
 import { WareViewModal } from './WareViewModal';
-import { Ware, getAllWares, saveWare, updateWare, deleteWare } from '../services/wareStorage';
+import { Ware, getAllWares, saveWare, updateWare, deleteWare, upsertWare } from '../services/wareStorage';
 import { getAllWaresFromFirestore, saveWareToFirestore, updateWareInFirestore, deleteWareFromFirestore } from '../services/wareFirestoreService';
 import { getCountsFromHtml } from '../utils/textUtils';
 import { getWareColorClasses } from './wareColorUtils';
@@ -65,9 +65,11 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
     const newMenuRef = useRef<HTMLDivElement>(null);
     const newBtnRef = useRef<HTMLButtonElement>(null);
 
+    const [syncing, setSyncing] = useState(false);
+    const isSyncingRef = useRef(false);
+
     useEffect(() => {
-        loadDocuments();
-        loadWares();
+        loadOfflineFirst();
         loadResearchProjects();
     }, [userId, incognitoMode]);
 
@@ -162,28 +164,75 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
         }
     }, [searchQuery, documents, wares]);
 
+    /**
+     * Offline-first loader:
+     *  1. Show local IndexedDB data immediately (zero network latency).
+     *  2. Then, only if online and authenticated, fetch from Firestore
+     *     SEQUENTIALLY (wares first, then documents) to avoid the
+     *     "Target ID already exists" Firestore internal assertion error.
+     *  3. Merge remote results back into the local cache.
+     */
+    const loadOfflineFirst = async () => {
+        // ── Step 1: show local data immediately ──────────────────────────
+        setLoading(true);
+        try {
+            const [localDocs, localWares] = await Promise.all([
+                getAllDocuments(),
+                getAllWares(),
+            ]);
+            setDocuments(localDocs);
+            setWares(localWares);
+        } catch (localErr) {
+            console.warn('Error reading local cache:', localErr);
+        } finally {
+            setLoading(false);
+        }
+
+        // ── Step 2: sync from Firestore (serialized, not concurrent) ─────
+        if (!userId || incognitoMode || isSyncingRef.current) return;
+        if (!navigator.onLine) return;
+
+        isSyncingRef.current = true;
+        setSyncing(true);
+        try {
+            // Fetch wares FIRST, await completion before fetching documents
+            let remoteWares: Ware[] = [];
+            try {
+                remoteWares = await getAllWaresFromFirestore(userId);
+                // Cache locally
+                await Promise.all(remoteWares.map(w => upsertWare(w)));
+                setWares(remoteWares);
+            } catch (wareErr) {
+                console.warn('Could not sync wares from Firestore, using local cache:', wareErr);
+                remoteWares = await getAllWares();
+            }
+
+            // Now fetch documents (Firestore stream is settled from prior call)
+            try {
+                const remoteDocs = await getAllDocumentsFromFirestore(userId);
+                // Cache locally
+                await Promise.all(remoteDocs.map(d => upsertDocument(d)));
+                setDocuments(remoteDocs);
+            } catch (docErr) {
+                console.warn('Could not sync documents from Firestore, using local cache:', docErr);
+                const localDocs = await getAllDocuments();
+                setDocuments(localDocs);
+            }
+        } catch (err) {
+            console.warn('Firestore sync failed, staying with local data:', err);
+        } finally {
+            isSyncingRef.current = false;
+            setSyncing(false);
+        }
+    };
+
     const loadDocuments = async () => {
         setLoading(true);
         try {
-            let docs: SavedDocument[];
-            if (userId && !incognitoMode) {
-                docs = await getAllDocumentsFromFirestore(userId);
-            } else {
-                docs = await getAllDocuments();
-            }
+            const docs = await getAllDocuments();
             setDocuments(docs);
-            // Filtered documents will be updated by the useEffect that depends on documents and wares
         } catch (error) {
             console.error('Error loading documents:', error);
-            if (userId && !incognitoMode) {
-                try {
-                    const localDocs = await getAllDocuments();
-                    setDocuments(localDocs);
-                    // Filtered documents will be updated by the useEffect that depends on documents and wares
-                } catch (localError) {
-                    console.error('Error loading local documents:', localError);
-                }
-            }
         } finally {
             setLoading(false);
         }
@@ -191,23 +240,10 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
 
     const loadWares = async () => {
         try {
-            let waresList: Ware[];
-            if (userId && !incognitoMode) {
-                waresList = await getAllWaresFromFirestore(userId);
-            } else {
-                waresList = await getAllWares();
-            }
+            const waresList = await getAllWares();
             setWares(waresList);
         } catch (error) {
             console.error('Error loading WARES:', error);
-            if (userId && !incognitoMode) {
-                try {
-                    const localWares = await getAllWares();
-                    setWares(localWares);
-                } catch (localError) {
-                    console.error('Error loading local WARES:', localError);
-                }
-            }
         }
     };
 
@@ -224,34 +260,12 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                     updatedAt: Date.now()
                 };
                 await saveWareToFirestore(userId, newWare);
-                // Optimistically add to state
-                setWares(prev => [newWare, ...prev]);
-                // Reload after a delay to sync with Firestore, merging with existing
-                setTimeout(async () => {
-                    try {
-                        const reloadedWares = await getAllWaresFromFirestore(userId);
-                        // Merge: if new ware is already in reloaded list, use reloaded; otherwise keep both
-                        setWares(prevWares => {
-                            const existingIds = new Set(reloadedWares.map(w => w.id));
-                            const missingFromReloaded = prevWares.filter(w => !existingIds.has(w.id));
-                            // Combine reloaded wares with any optimistic updates that weren't in reloaded
-                            return [...reloadedWares, ...missingFromReloaded].sort((a, b) => b.updatedAt - a.updatedAt);
-                        });
-                    } catch (err) {
-                        // If reload fails, keep optimistic update
-                        console.log('Reload deferred, keeping optimistic update');
-                    }
-                }, 1500);
             } else {
                 newWare = await saveWare(name, [], color);
-                // Optimistically add to state
-                setWares(prev => [newWare, ...prev]);
-                // For local storage, reload immediately since it's synchronous
-                await loadWares();
             }
+            await loadWares();
         } catch (error) {
             console.error('Error creating WARE:', error);
-            // Reload on error to get accurate state
             await loadWares();
             throw error;
         }
@@ -273,20 +287,8 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                 await updateWare(selectedWare.id, selectedWare.name, updatedWare.documentIds, selectedWare.color);
             }
             
-            // Wait a bit for Firestore to sync, then reload
-            await new Promise(resolve => setTimeout(resolve, 500));
             await loadWares();
-            
-            // Update selectedWare to reflect changes
-            const reloadedWares = userId && !incognitoMode 
-                ? await getAllWaresFromFirestore(userId)
-                : await getAllWares();
-            const reloadedWare = reloadedWares.find(w => w.id === selectedWare.id);
-            if (reloadedWare) {
-                setSelectedWare(reloadedWare);
-            } else {
-                setSelectedWare(updatedWare);
-            }
+            setSelectedWare(updatedWare);
         } catch (error) {
             console.error('Error adding documents to WARE:', error);
             throw error;
@@ -680,9 +682,15 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
 
                             {/* Authentication */}
                             {user ? (
-                                <>
+                                <div className="flex items-center gap-2">
+                                    {syncing && (
+                                        <div className="flex items-center gap-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-md text-xs font-medium animate-pulse">
+                                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
+                                            <span>Syncing...</span>
+                                        </div>
+                                    )}
                                     <UserProfile onOpenProvider={() => setIsProviderOpen(true)} />
-                                </>
+                                </div>
                             ) : (
                                 <>
                                     <button

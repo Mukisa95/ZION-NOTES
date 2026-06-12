@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { XIcon, TrashIcon, SearchIcon, FolderIcon, ChevronDownIcon, ChevronRightIcon, DocumentIcon } from './icons';
-import { SavedDocument, getAllDocuments, deleteDocument, getDocument } from '../services/documentStorage';
+import { SavedDocument, getAllDocuments, deleteDocument, getDocument, upsertDocument } from '../services/documentStorage';
 import { getAllDocumentsFromFirestore, deleteDocumentFromFirestore } from '../services/firestoreService';
-import { Ware, getAllWares } from '../services/wareStorage';
+import { Ware, getAllWares, upsertWare } from '../services/wareStorage';
 import { getAllWaresFromFirestore } from '../services/wareFirestoreService';
 import { getWareColorStyle } from './wareColorStyles';
 
@@ -27,37 +27,106 @@ export const DocumentLibrary: React.FC<DocumentLibraryProps> = ({
     const [filteredDocuments, setFilteredDocuments] = useState<SavedDocument[]>([]);
     const [wares, setWares] = useState<Ware[]>([]);
     const [loading, setLoading] = useState(false);
+    const [syncing, setSyncing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [expandedWares, setExpandedWares] = useState<Set<string>>(new Set());
     const [wareDocuments, setWareDocuments] = useState<Record<string, SavedDocument[]>>({});
+    // Prevent concurrent Firestore fetches across re-renders
+    const isSyncingRef = useRef(false);
 
     useEffect(() => {
         if (isOpen) {
-            console.log('DocumentLibrary opened with:', { userId, incognitoMode, isOpen });
-            loadDocuments();
-            loadWares();
+            loadOfflineFirst();
         }
     }, [isOpen, userId, incognitoMode]);
 
-    const loadWares = async () => {
+    /**
+     * Offline-first loader:
+     *  1. Show local IndexedDB data immediately (zero network latency).
+     *  2. Then, only if online and authenticated, fetch from Firestore
+     *     SEQUENTIALLY (wares first, then documents) to avoid the
+     *     "Target ID already exists" Firestore internal assertion error
+     *     that happens when multiple getDocs() calls run concurrently.
+     *  3. Merge remote results back into the local cache.
+     */
+    const loadOfflineFirst = async () => {
+        // ── Step 1: show local data immediately ──────────────────────────
+        setLoading(true);
         try {
-            let waresList: Ware[];
-            if (userId && !incognitoMode) {
-                waresList = await getAllWaresFromFirestore(userId);
-            } else {
-                waresList = await getAllWares();
+            const [localDocs, localWares] = await Promise.all([
+                getAllDocuments(),
+                getAllWares(),
+            ]);
+            setDocuments(localDocs);
+            setFilteredDocuments(localDocs);
+            setWares(localWares);
+        } catch (localErr) {
+            console.warn('Error reading local cache:', localErr);
+        } finally {
+            setLoading(false);
+        }
+
+        // ── Step 2: sync from Firestore (serialized, not concurrent) ─────
+        if (!userId || incognitoMode || isSyncingRef.current) return;
+        if (!navigator.onLine) return;
+
+        isSyncingRef.current = true;
+        setSyncing(true);
+        try {
+            // Fetch wares FIRST, await completion before fetching documents
+            let remoteWares: Ware[] = [];
+            try {
+                remoteWares = await getAllWaresFromFirestore(userId);
+                // Cache locally
+                await Promise.all(remoteWares.map(w => upsertWare(w)));
+                setWares(remoteWares);
+            } catch (wareErr) {
+                console.warn('Could not sync wares from Firestore, using local cache:', wareErr);
+                remoteWares = await getAllWares();
             }
-            setWares(waresList);
-        } catch (error) {
-            console.error('Error loading WARES:', error);
-            if (userId && !incognitoMode) {
+
+            // Now fetch documents (Firestore stream is settled from prior call)
+            try {
+                const remoteDocs = await getAllDocumentsFromFirestore(userId);
+                // Cache locally
+                await Promise.all(remoteDocs.map(d => upsertDocument(d)));
+                setDocuments(remoteDocs);
+                setFilteredDocuments(remoteDocs);
+            } catch (docErr) {
+                console.warn('Could not sync documents from Firestore, using local cache:', docErr);
+                const localDocs = await getAllDocuments();
+                setDocuments(localDocs);
+                setFilteredDocuments(localDocs);
+            }
+        } catch (err) {
+            console.warn('Firestore sync failed, staying with local data:', err);
+        } finally {
+            isSyncingRef.current = false;
+            setSyncing(false);
+        }
+    };
+
+    // Keep loadDocuments as a standalone refresh (called after delete, etc.)
+    const loadDocuments = async () => {
+        setLoading(true);
+        try {
+            let docs: SavedDocument[];
+            if (userId && !incognitoMode && navigator.onLine) {
                 try {
-                    const localWares = await getAllWares();
-                    setWares(localWares);
-                } catch (localError) {
-                    console.error('Error loading local WARES:', localError);
+                    docs = await getAllDocumentsFromFirestore(userId);
+                    await Promise.all(docs.map(d => upsertDocument(d)));
+                } catch {
+                    docs = await getAllDocuments();
                 }
+            } else {
+                docs = await getAllDocuments();
             }
+            setDocuments(docs);
+            setFilteredDocuments(docs);
+        } catch (error) {
+            console.error('Error loading documents:', error);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -133,41 +202,6 @@ export const DocumentLibrary: React.FC<DocumentLibraryProps> = ({
         }
     }, [searchQuery, documents, wares]);
 
-    const loadDocuments = async () => {
-        setLoading(true);
-        try {
-            let docs: SavedDocument[];
-            if (userId && !incognitoMode) {
-                // Load from Firestore
-                console.log('Loading documents from Firestore for user:', userId);
-                docs = await getAllDocumentsFromFirestore(userId);
-                console.log('Loaded documents from Firestore:', docs);
-            } else {
-                // Load from local storage
-                console.log('Loading documents from local storage');
-                docs = await getAllDocuments();
-                console.log('Loaded documents from local storage:', docs);
-            }
-            setDocuments(docs);
-            setFilteredDocuments(docs);
-        } catch (error) {
-            console.error('Error loading documents:', error);
-            // Fallback to local storage if cloud fails
-            if (userId && !incognitoMode) {
-                console.log('Falling back to local storage due to cloud error');
-                try {
-                    const localDocs = await getAllDocuments();
-                    setDocuments(localDocs);
-                    setFilteredDocuments(localDocs);
-                } catch (localError) {
-                    console.error('Error loading local documents:', localError);
-                }
-            }
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const handleDelete = async (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
         if (confirm('Are you sure you want to delete this document?')) {
@@ -238,6 +272,12 @@ export const DocumentLibrary: React.FC<DocumentLibraryProps> = ({
                                     <span>Local</span>
                                 </div>
                             )}
+                            {syncing && (
+                                <div className="flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-md text-xs font-medium">
+                                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                                    <span>Syncing...</span>
+                                </div>
+                            )}
                         </div>
                     </div>
                     <button
@@ -262,9 +302,9 @@ export const DocumentLibrary: React.FC<DocumentLibraryProps> = ({
                     </div>
                 </div>
 
-                {/* Content */}
+                {/* Content — show local data immediately, spinner only on first empty load */}
                 <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-4">
-                    {loading ? (
+                    {loading && documents.length === 0 ? (
                         <div className="text-center py-12">
                             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                             <p className="mt-4 text-gray-500 dark:text-gray-400">Loading documents...</p>

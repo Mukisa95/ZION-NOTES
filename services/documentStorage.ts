@@ -1,7 +1,9 @@
 /**
  * Local Document Storage Service
- * Manages saving and loading documents with IndexedDB
+ * Manages saving and loading documents with IndexedDB (unified DB via db.ts)
  */
+
+import { getDB, STORE_DOCUMENTS } from './db';
 
 export interface SavedDocument {
     id: string;
@@ -13,54 +15,18 @@ export interface SavedDocument {
     wordCount: number;
 }
 
-const DB_NAME = 'AINoteTakerDB';
-const STORE_NAME = 'documents';
-const DB_VERSION = 1;
-
-let db: IDBDatabase | null = null;
-
-/**
- * Initialize IndexedDB
- */
-const initDB = (): Promise<IDBDatabase> => {
-    return new Promise((resolve, reject) => {
-        if (db) {
-            resolve(db);
-            return;
-        }
-
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => {
-            db = request.result;
-            resolve(db);
-        };
-
-        request.onupgradeneeded = (event) => {
-            const database = (event.target as IDBOpenDBRequest).result;
-            
-            if (!database.objectStoreNames.contains(STORE_NAME)) {
-                const objectStore = database.createObjectStore(STORE_NAME, { keyPath: 'id' });
-                objectStore.createIndex('name', 'name', { unique: false });
-                objectStore.createIndex('updatedAt', 'updatedAt', { unique: false });
-            }
-        };
-    });
-};
-
 /**
  * Save a document
  */
 export const saveDocument = async (name: string, content: string): Promise<SavedDocument> => {
-    const database = await initDB();
-    
+    const database = await getDB();
+
     // Count words
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = content;
     const text = tempDiv.textContent || '';
     const wordCount = text.trim().split(/\s+/).filter(w => w.length > 0).length;
-    
+
     const now = Date.now();
     const doc: SavedDocument = {
         id: `doc_${now}_${Math.random().toString(36).substr(2, 9)}`,
@@ -72,8 +38,8 @@ export const saveDocument = async (name: string, content: string): Promise<Saved
     };
 
     return new Promise((resolve, reject) => {
-        const transaction = database.transaction([STORE_NAME], 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
+        const transaction = database.transaction([STORE_DOCUMENTS], 'readwrite');
+        const store = transaction.objectStore(STORE_DOCUMENTS);
         const request = store.add(doc);
 
         request.onsuccess = () => resolve(doc);
@@ -85,8 +51,8 @@ export const saveDocument = async (name: string, content: string): Promise<Saved
  * Update an existing document
  */
 export const updateDocument = async (id: string, name: string, content: string): Promise<SavedDocument> => {
-    const database = await initDB();
-    
+    const database = await getDB();
+
     // Count words
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = content;
@@ -94,8 +60,8 @@ export const updateDocument = async (id: string, name: string, content: string):
     const wordCount = text.trim().split(/\s+/).filter(w => w.length > 0).length;
 
     return new Promise((resolve, reject) => {
-        const transaction = database.transaction([STORE_NAME], 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
+        const transaction = database.transaction([STORE_DOCUMENTS], 'readwrite');
+        const store = transaction.objectStore(STORE_DOCUMENTS);
         const getRequest = store.get(id);
 
         getRequest.onsuccess = () => {
@@ -121,17 +87,17 @@ export const updateDocument = async (id: string, name: string, content: string):
  * Get all saved documents
  */
 export const getAllDocuments = async (): Promise<SavedDocument[]> => {
-    const database = await initDB();
+    const database = await getDB();
 
     return new Promise((resolve, reject) => {
-        const transaction = database.transaction([STORE_NAME], 'readonly');
-        const store = transaction.objectStore(STORE_NAME);
+        const transaction = database.transaction([STORE_DOCUMENTS], 'readonly');
+        const store = transaction.objectStore(STORE_DOCUMENTS);
         const request = store.getAll();
 
         request.onsuccess = () => {
             const docs = request.result as SavedDocument[];
             // Sort by most recently updated
-            docs.sort((a, b) => b.updatedAt - a.updatedAt);
+            docs.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0));
             resolve(docs);
         };
         request.onerror = () => reject(request.error);
@@ -142,11 +108,11 @@ export const getAllDocuments = async (): Promise<SavedDocument[]> => {
  * Get a specific document by ID
  */
 export const getDocument = async (id: string): Promise<SavedDocument | null> => {
-    const database = await initDB();
+    const database = await getDB();
 
     return new Promise((resolve, reject) => {
-        const transaction = database.transaction([STORE_NAME], 'readonly');
-        const store = transaction.objectStore(STORE_NAME);
+        const transaction = database.transaction([STORE_DOCUMENTS], 'readonly');
+        const store = transaction.objectStore(STORE_DOCUMENTS);
         const request = store.get(id);
 
         request.onsuccess = () => resolve(request.result || null);
@@ -158,12 +124,28 @@ export const getDocument = async (id: string): Promise<SavedDocument | null> => 
  * Delete a document
  */
 export const deleteDocument = async (id: string): Promise<void> => {
-    const database = await initDB();
+    const database = await getDB();
 
     return new Promise((resolve, reject) => {
-        const transaction = database.transaction([STORE_NAME], 'readwrite');
-        const store = transaction.objectStore(STORE_NAME);
+        const transaction = database.transaction([STORE_DOCUMENTS], 'readwrite');
+        const store = transaction.objectStore(STORE_DOCUMENTS);
         const request = store.delete(id);
+
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+    });
+};
+
+/**
+ * Upsert a document (used when merging Firestore data locally)
+ */
+export const upsertDocument = async (doc: SavedDocument): Promise<void> => {
+    const database = await getDB();
+
+    return new Promise((resolve, reject) => {
+        const transaction = database.transaction([STORE_DOCUMENTS], 'readwrite');
+        const store = transaction.objectStore(STORE_DOCUMENTS);
+        const request = store.put(doc);
 
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
@@ -187,4 +169,3 @@ export const setCurrentDocumentId = (id: string | null) => {
 export const getCurrentDocumentId = (): string | null => {
     return localStorage.getItem('current_document_id');
 };
-
