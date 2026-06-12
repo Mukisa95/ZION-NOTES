@@ -292,6 +292,10 @@ const getTranscriptionPrompt = (option: TranscriptionOption): string => {
     `You are an expert document transcriber. Process the provided files (images, PDFs, or DOCX) and return a JSON object with two fields:\n` +
     `- "html": clean, semantic HTML representing the document content\n` +
     `- "errors": an array describing any spelling/grammar issues (objects with "original" and "suggestion")\n\n` +
+    `CRITICAL INSTRUCTIONS:\n` +
+    `1. For math equations: Use LaTeX wrapped in $$ ... $$ for block math and $ ... $ for inline math.\n` +
+    `2. For tables: Recreate them perfectly using standard HTML <table>, <tr>, <th>, and <td> tags.\n` +
+    `3. For diagrams (sets, number lines, geometry, angles, bearings, etc.): Recreate them faithfully using inline <svg> code directly inside the HTML. Ensure SVGs are properly scaled using the viewBox attribute.\n\n` +
     `Always return VALID JSON only—no markdown fences or extra commentary.`;
   switch (option) {
     case 'original':

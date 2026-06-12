@@ -298,6 +298,11 @@ const getTranscriptionPrompt = (option: TranscriptionOption): string => {
 - "html": clean, semantic HTML representing the document content
 - "errors": an array describing any spelling/grammar issues (objects with "original" and "suggestion")
 
+CRITICAL INSTRUCTIONS:
+1. For math equations: Use LaTeX wrapped in $$ ... $$ for block math and $ ... $ for inline math.
+2. For tables: Recreate them perfectly using standard HTML <table>, <tr>, <th>, and <td> tags.
+3. For diagrams (sets, number lines, geometry, angles, bearings, etc.): Recreate them faithfully using inline <svg> code directly inside the HTML. Ensure SVGs are properly scaled using the viewBox attribute.
+
 Always return VALID JSON only—no markdown fences or extra commentary.`;
 
   switch (option) {
