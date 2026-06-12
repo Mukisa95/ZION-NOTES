@@ -62,6 +62,14 @@ const A4_STYLES = `
             body {
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
+                width: auto;
+                min-height: auto;
+                margin: 0;
+                padding: 0;
+                border: none;
+                box-shadow: none;
+                background-color: white;
+                color: black;
             }
             svg { break-inside: avoid; }
         }
@@ -84,7 +92,7 @@ const A4_STYLES = `
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background-color: #f2f2f2; }
         blockquote { border-left: 4px solid #ccc; padding-left: 1em; margin-left: 0; color: #666; }
-        .dark, [class*="dark:"] {
+        .dark-only {
             display: none;
         }
         /* KaTeX math rendering */
@@ -200,9 +208,11 @@ const getHtmlContent = (content: string, title: string) => {
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>${title}</title>
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+            <script src="https://cdn.tailwindcss.com"></script>
             ${A4_STYLES}
         </head>
-        <body>
+        <body class="bg-white text-black">
             ${content}
         </body>
         </html>
@@ -279,6 +289,23 @@ export const exportAsPdf = (content: string, filename: string) => {
     iframe.style.height = '0';
     iframe.style.border = 'none';
     
+    // Set onload handler BEFORE appending to the body or writing
+    iframe.onload = () => {
+        // Use a timeout to ensure Tailwind CDN script has finished processing the DOM
+        setTimeout(() => {
+            if (iframe.contentWindow) {
+                iframe.contentWindow.focus(); // Focus is needed for some browsers
+                iframe.contentWindow.print(); // Trigger the print dialog
+            }
+            // Clean up the iframe after a delay. This gives the user time to interact with the print dialog.
+            setTimeout(() => {
+                if (iframe.parentNode) {
+                    document.body.removeChild(iframe);
+                }
+            }, 1000);
+        }, 500); 
+    };
+
     document.body.appendChild(iframe);
 
     // Get the iframe's document object
@@ -293,19 +320,6 @@ export const exportAsPdf = (content: string, filename: string) => {
     iframeDoc.open();
     iframeDoc.write(html);
     iframeDoc.close();
-
-    // Set an onload handler for the iframe
-    iframe.onload = () => {
-        // Use a small timeout to ensure the browser has rendered the content
-        setTimeout(() => {
-            if (iframe.contentWindow) {
-                iframe.contentWindow.focus(); // Focus is needed for some browsers
-                iframe.contentWindow.print(); // Trigger the print dialog
-            }
-            // Clean up the iframe after a delay. This gives the user time to interact with the print dialog.
-            setTimeout(() => document.body.removeChild(iframe), 1000);
-        }, 100); 
-    };
 };
 
 /**

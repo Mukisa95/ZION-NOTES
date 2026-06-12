@@ -1715,6 +1715,98 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
         });
     };
     
+    // Mutually recursive list helpers
+    function processUlItems(ulElement: HTMLElement, level: number = 0) {
+        ulElement.querySelectorAll(':scope > li').forEach((li) => {
+            const liEl = li as HTMLElement;
+            
+            // Process direct text/inline content
+            const liRuns: any[] = [];
+            Array.from(liEl.childNodes).forEach(child => {
+                if (child.nodeType === Node.TEXT_NODE) {
+                    const text = child.textContent?.trim();
+                    if (text) {
+                        liRuns.push(new TextRun({ text }));
+                    }
+                } else if (child.nodeName !== 'UL' && child.nodeName !== 'OL') {
+                    const childRuns = processNode(child as HTMLElement);
+                    liRuns.push(...childRuns);
+                }
+            });
+            
+            if (liRuns.length > 0) {
+                elements.push(new Paragraph({
+                    children: liRuns,
+                    alignment: getAlignment(liEl),
+                    bullet: {
+                        level: Math.min(level, 8) // Max 9 levels (0-8)
+                    },
+                    spacing: {
+                        after: 100,
+                        line: 276
+                    }
+                }));
+            }
+            
+            // Process nested lists
+            const nestedUl = liEl.querySelector(':scope > ul');
+            if (nestedUl) {
+                processUlItems(nestedUl as HTMLElement, level + 1);
+            }
+            
+            const nestedOl = liEl.querySelector(':scope > ol');
+            if (nestedOl) {
+                processOlItems(nestedOl as HTMLElement, level + 1);
+            }
+        });
+    }
+
+    function processOlItems(olElement: HTMLElement, level: number = 0) {
+        olElement.querySelectorAll(':scope > li').forEach((li) => {
+            const liEl = li as HTMLElement;
+            
+            // Process direct text/inline content
+            const liRuns: any[] = [];
+            Array.from(liEl.childNodes).forEach(child => {
+                if (child.nodeType === Node.TEXT_NODE) {
+                    const text = child.textContent?.trim();
+                    if (text) {
+                        liRuns.push(new TextRun({ text }));
+                    }
+                } else if (child.nodeName !== 'UL' && child.nodeName !== 'OL') {
+                    const childRuns = processNode(child as HTMLElement);
+                    liRuns.push(...childRuns);
+                }
+            });
+            
+            if (liRuns.length > 0) {
+                elements.push(new Paragraph({
+                    children: liRuns,
+                    alignment: getAlignment(liEl),
+                    numbering: {
+                        reference: 'ordered-list',
+                        level: Math.min(level, 8) // Max 9 levels (0-8)
+                    },
+                    spacing: {
+                        after: 100,
+                        line: 276
+                    }
+                }));
+            }
+            
+            // Process nested lists
+            const nestedOl = liEl.querySelector(':scope > ol');
+            if (nestedOl) {
+                processOlItems(nestedOl as HTMLElement, level + 1);
+            }
+            
+            const nestedUl = liEl.querySelector(':scope > ul');
+            if (nestedUl) {
+                processUlItems(nestedUl as HTMLElement, level + 1);
+            }
+        });
+    }
+    
     const processElement = (el: Element) => {
         const htmlEl = el as HTMLElement;
         
@@ -1824,100 +1916,9 @@ const htmlToDocxElements = (html: string): (Paragraph | Table)[] => {
                 }
                 break;
             case 'UL':
-                // Process unordered list items with nesting support
-                const processUlItems = (ulElement: HTMLElement, level: number = 0) => {
-                    ulElement.querySelectorAll(':scope > li').forEach((li) => {
-                        const liEl = li as HTMLElement;
-                        
-                        // Process direct text/inline content
-                        const liRuns: any[] = [];
-                        Array.from(liEl.childNodes).forEach(child => {
-                            if (child.nodeType === Node.TEXT_NODE) {
-                                const text = child.textContent?.trim();
-                                if (text) {
-                                    liRuns.push(new TextRun({ text }));
-                                }
-                            } else if (child.nodeName !== 'UL' && child.nodeName !== 'OL') {
-                                const childRuns = processNode(child as HTMLElement);
-                                liRuns.push(...childRuns);
-                            }
-                        });
-                        
-                        if (liRuns.length > 0) {
-                            elements.push(new Paragraph({
-                                children: liRuns,
-                                alignment: getAlignment(liEl),
-                                bullet: {
-                                    level: Math.min(level, 8) // Max 9 levels (0-8)
-                                },
-                                spacing: {
-                                    after: 100,
-                                    line: 276
-                                }
-                            }));
-                        }
-                        
-                        // Process nested lists
-                        const nestedUl = liEl.querySelector(':scope > ul');
-                        if (nestedUl) {
-                            processUlItems(nestedUl as HTMLElement, level + 1);
-                        }
-                        
-                        const nestedOl = liEl.querySelector(':scope > ol');
-                        if (nestedOl) {
-                            processOlItems(nestedOl as HTMLElement, level + 1);
-                        }
-                    });
-                };
                 processUlItems(htmlEl);
                 break;
             case 'OL':
-                // Process ordered list items with nesting support
-                const processOlItems = (olElement: HTMLElement, level: number = 0) => {
-                    olElement.querySelectorAll(':scope > li').forEach((li) => {
-                        const liEl = li as HTMLElement;
-                        
-                        // Process direct text/inline content
-                        const liRuns: any[] = [];
-                        Array.from(liEl.childNodes).forEach(child => {
-                            if (child.nodeType === Node.TEXT_NODE) {
-                                const text = child.textContent?.trim();
-                                if (text) {
-                                    liRuns.push(new TextRun({ text }));
-                                }
-                            } else if (child.nodeName !== 'UL' && child.nodeName !== 'OL') {
-                                const childRuns = processNode(child as HTMLElement);
-                                liRuns.push(...childRuns);
-                            }
-                        });
-                        
-                        if (liRuns.length > 0) {
-                            elements.push(new Paragraph({
-                                children: liRuns,
-                                alignment: getAlignment(liEl),
-                                numbering: {
-                                    reference: 'ordered-list',
-                                    level: Math.min(level, 8) // Max 9 levels (0-8)
-                                },
-                                spacing: {
-                                    after: 100,
-                                    line: 276
-                                }
-                            }));
-                        }
-                        
-                        // Process nested lists
-                        const nestedOl = liEl.querySelector(':scope > ol');
-                        if (nestedOl) {
-                            processOlItems(nestedOl as HTMLElement, level + 1);
-                        }
-                        
-                        const nestedUl = liEl.querySelector(':scope > ul');
-                        if (nestedUl) {
-                            processUlItems(nestedUl as HTMLElement, level + 1);
-                        }
-                    });
-                };
                 processOlItems(htmlEl);
                 break;
             case 'TABLE':
