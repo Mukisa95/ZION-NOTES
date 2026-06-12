@@ -70,7 +70,6 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
 
     useEffect(() => {
         loadOfflineFirst();
-        loadResearchProjects();
     }, [userId, incognitoMode]);
 
     useEffect(() => {
@@ -88,20 +87,33 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
     }, [showNewMenu]);
 
     const loadResearchProjects = async () => {
-        if (!userId) return;
         try {
-            const projects = await getAllResearchProjectsFromFirestore(userId);
-            setResearchProjects(projects);
+            const localDocs = await getAllDocuments();
+            const localProjects = localDocs
+                .filter(d => d.id.startsWith('rp_'))
+                .map(d => {
+                    try {
+                        const parsed = JSON.parse(d.content);
+                        return { ...parsed, id: d.id, name: d.name };
+                    } catch {
+                        return { id: d.id, name: d.name, createdAt: d.createdAt || Date.now(), updatedAt: d.updatedAt || Date.now() };
+                    }
+                });
+            setResearchProjects(localProjects as any);
         } catch { /* non-critical */ }
     };
 
     const handleDeleteResearchProject = async (projectId: string) => {
-        if (!userId) return;
         try {
-            await deleteResearchProjectFromFirestore(userId, projectId);
+            // Delete locally first
+            await deleteDocument(projectId);
             setResearchProjects(prev => prev.filter(p => p.id !== projectId));
-        } catch (e: any) {
-            alert('Error deleting research project: ' + e.message);
+
+            if (userId && !incognitoMode) {
+                await deleteResearchProjectFromFirestore(userId, projectId);
+            }
+        } catch (error) {
+            console.error('Error deleting research project:', error);
         }
     };
 
@@ -217,6 +229,23 @@ export const DocumentLandingPage: React.FC<DocumentLandingPageProps> = ({
                 console.warn('Could not sync documents from Firestore, using local cache:', docErr);
                 const localDocs = await getAllDocuments();
                 setDocuments(localDocs);
+            }
+
+            // Now fetch research projects sequentially (after documents stream settles)
+            try {
+                const projects = await getAllResearchProjectsFromFirestore(userId);
+                // Cache locally as documents
+                await Promise.all(projects.map(p => upsertDocument({
+                    id: p.id,
+                    name: p.name,
+                    content: JSON.stringify(p),
+                    createdAt: p.createdAt,
+                    updatedAt: p.updatedAt,
+                    wordCount: 0
+                })));
+                setResearchProjects(projects);
+            } catch (projErr) {
+                console.warn('Could not sync research projects from Firestore:', projErr);
             }
         } catch (err) {
             console.warn('Firestore sync failed, staying with local data:', err);

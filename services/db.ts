@@ -7,7 +7,7 @@
  */
 
 export const DB_NAME = 'AINoteTakerDB';
-export const DB_VERSION = 3; // matches the latest version (offlineSyncQueue)
+export const DB_VERSION = 4; // Bumped to force creation of new object stores (wares, syncQueue)
 
 // Store names — import these constants instead of using raw strings
 export const STORE_DOCUMENTS = 'documents';
