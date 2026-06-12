@@ -12,22 +12,62 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { Ware } from './wareStorage';
+import { enqueueSyncOperation } from './offlineSyncQueue';
 
 // Firestore collection name
 const WARES_COLLECTION = 'wares';
 
+/**
+ * Detect whether a Firestore error is network-related.
+ */
+const isNetworkError = (error: any): boolean => {
+  if (!navigator.onLine) return true;
+  const msg = String(error?.code || error?.message || '').toLowerCase();
+  return (
+    msg.includes('unavailable') ||
+    msg.includes('network') ||
+    msg.includes('failed to fetch') ||
+    msg.includes('offline')
+  );
+};
+
+// ---------------------------------------------------------------------------
+// RAW helpers — used by offlineSyncQueue to replay operations directly
+// without going through the offline-fallback wrapper (to avoid infinite loops)
+// ---------------------------------------------------------------------------
+
+export const saveWareToFirestoreRaw = async (userId: string, ware: Ware): Promise<void> => {
+  const docRef = doc(db, WARES_COLLECTION, ware.id);
+  const data = {
+    ...ware,
+    userId,
+    updatedAt: Timestamp.fromMillis(ware.updatedAt),
+    createdAt: Timestamp.fromMillis(ware.createdAt)
+  };
+  await setDoc(docRef, data);
+};
+
+export const updateWareInFirestoreRaw = saveWareToFirestoreRaw; // same operation for full doc writes
+
+export const deleteWareFromFirestoreRaw = async (userId: string, wareId: string): Promise<void> => {
+  const docRef = doc(db, WARES_COLLECTION, wareId);
+  await deleteDoc(docRef);
+};
+
+// ---------------------------------------------------------------------------
+// Public API (with offline fallback)
+// ---------------------------------------------------------------------------
+
 // Save WARE to Firestore
 export const saveWareToFirestore = async (userId: string, ware: Ware): Promise<void> => {
   try {
-    const docRef = doc(db, WARES_COLLECTION, ware.id);
-    const data = {
-      ...ware,
-      userId,
-      updatedAt: Timestamp.fromMillis(ware.updatedAt),
-      createdAt: Timestamp.fromMillis(ware.createdAt)
-    };
-    await setDoc(docRef, data);
+    await saveWareToFirestoreRaw(userId, ware);
   } catch (error) {
+    if (isNetworkError(error)) {
+      console.warn('Offline: queuing WARE save for later sync', ware.id);
+      await enqueueSyncOperation('save', 'wares', { ...ware, userId });
+      return;
+    }
     console.error('Error saving WARE to Firestore:', error);
     throw error;
   }
@@ -65,6 +105,10 @@ export const getWareFromFirestore = async (userId: string, wareId: string): Prom
     }
     return null;
   } catch (error) {
+    if (isNetworkError(error)) {
+      console.warn('Offline: cannot fetch WARE from Firestore, using local data');
+      return null;
+    }
     console.error('Error getting WARE from Firestore:', error);
     throw error;
   }
@@ -96,7 +140,6 @@ export const getAllWaresFromFirestore = async (userId: string): Promise<Ware[]> 
         });
       });
       
-      // Sort manually if needed (already sorted by query, but just in case)
       return wares.sort((a, b) => b.updatedAt - a.updatedAt);
     } catch (indexError: any) {
       // If index error, fallback to query without orderBy and sort in memory
@@ -121,12 +164,15 @@ export const getAllWaresFromFirestore = async (userId: string): Promise<Ware[]> 
           });
         });
         
-        // Sort by updatedAt descending in memory
         return wares.sort((a, b) => b.updatedAt - a.updatedAt);
       }
       throw indexError;
     }
   } catch (error) {
+    if (isNetworkError(error)) {
+      console.warn('Offline: cannot fetch WAREs from Firestore, falling back to local data');
+      return [];
+    }
     console.error('Error getting WARES from Firestore:', error);
     throw error;
   }
@@ -161,6 +207,11 @@ export const updateWareInFirestore = async (userId: string, wareId: string, upda
       throw new Error('WARE not found or access denied');
     }
   } catch (error) {
+    if (isNetworkError(error)) {
+      console.warn('Offline: queuing WARE update for later sync', wareId);
+      await enqueueSyncOperation('update', 'wares', { id: wareId, userId, ...updates });
+      return;
+    }
     console.error('Error updating WARE in Firestore:', error);
     throw error;
   }
@@ -178,8 +229,12 @@ export const deleteWareFromFirestore = async (userId: string, wareId: string): P
       throw new Error('WARE not found or access denied');
     }
   } catch (error) {
+    if (isNetworkError(error)) {
+      console.warn('Offline: queuing WARE delete for later sync', wareId);
+      await enqueueSyncOperation('delete', 'wares', { id: wareId, userId });
+      return;
+    }
     console.error('Error deleting WARE from Firestore:', error);
     throw error;
   }
 };
-

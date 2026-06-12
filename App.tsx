@@ -37,6 +37,7 @@ import { FindAndReplaceBar } from './components/FindAndReplaceBar';
 import { exportAsHtml, exportAsMarkdown, exportAsText, exportAsPdf, exportAsWord } from './utils/exportUtils';
 import { readDocxFile } from './services/docxService';
 import { getContentSize, CompressionMethod, decompressGzip, SplitResult, formatBytes } from './utils/compressionUtils';
+import OfflineBanner from './components/OfflineBanner';
 
 const useClickOutside = (ref: React.RefObject<HTMLElement>, callback: () => void) => {
     useEffect(() => {
@@ -2127,6 +2128,9 @@ const App: React.FC = () => {
       )}
 
       {/* Table modal removed */}
+
+      {/* Offline / Sync status banner — always on top */}
+      <OfflineBanner />
     </div>
   );
 };

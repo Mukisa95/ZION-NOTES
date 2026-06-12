@@ -25,3 +25,10 @@ WriterPageCore/
 *.sw?
 
 .vercel
+
+# PWA Dev dist
+dev-dist/
+
+# Local test docs and scratch files
+test.docx
+*.skill

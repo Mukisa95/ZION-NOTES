@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { SavedDocument } from './documentStorage';
+import { enqueueSyncOperation } from './offlineSyncQueue';
 
 // Firestore collection name
 const DOCUMENTS_COLLECTION = 'documents';
@@ -45,6 +46,21 @@ const compressContent = (html: string): string => {
   }
   
   return compressed;
+};
+
+/**
+ * Detect whether a Firestore error is network-related.
+ * Firebase throws 'unavailable', 'failed-precondition', or plain network errors offline.
+ */
+const isNetworkError = (error: any): boolean => {
+  if (!navigator.onLine) return true;
+  const msg = String(error?.code || error?.message || '').toLowerCase();
+  return (
+    msg.includes('unavailable') ||
+    msg.includes('network') ||
+    msg.includes('failed to fetch') ||
+    msg.includes('offline')
+  );
 };
 
 // Save document to Firestore
@@ -94,6 +110,11 @@ export const saveDocumentToFirestore = async (userId: string, document: SavedDoc
     await setDoc(docRef, data);
     console.log('Firestore save successful');
   } catch (error) {
+    if (isNetworkError(error)) {
+      console.warn('Offline: queuing document save for later sync', document.id);
+      await enqueueSyncOperation('save', 'documents', { ...document, userId });
+      return; // Success from the user's perspective — queued locally
+    }
     console.error('Error saving document to Firestore:', error);
     throw error;
   }
@@ -118,6 +139,10 @@ export const getDocumentFromFirestore = async (userId: string, documentId: strin
     }
     return null;
   } catch (error) {
+    if (isNetworkError(error)) {
+      console.warn('Offline: cannot fetch document from Firestore, using local data');
+      return null; // Caller falls back to local IndexedDB
+    }
     console.error('Error getting document from Firestore:', error);
     throw error;
   }
@@ -153,6 +178,10 @@ export const getAllDocumentsFromFirestore = async (userId: string): Promise<Save
     console.log('Final documents array:', documents.length, 'documents');
     return documents;
   } catch (error) {
+    if (isNetworkError(error)) {
+      console.warn('Offline: cannot fetch documents from Firestore, falling back to local data');
+      return []; // Caller uses local IndexedDB data
+    }
     console.error('Error getting documents from Firestore:', error);
     throw error;
   }
@@ -207,6 +236,11 @@ export const updateDocumentInFirestore = async (userId: string, documentId: stri
       throw new Error('Document not found or access denied');
     }
   } catch (error) {
+    if (isNetworkError(error)) {
+      console.warn('Offline: queuing document update for later sync', documentId);
+      await enqueueSyncOperation('update', 'documents', { id: documentId, userId, ...updates });
+      return;
+    }
     console.error('Error updating document in Firestore:', error);
     throw error;
   }
@@ -224,8 +258,12 @@ export const deleteDocumentFromFirestore = async (userId: string, documentId: st
       throw new Error('Document not found or access denied');
     }
   } catch (error) {
+    if (isNetworkError(error)) {
+      console.warn('Offline: queuing document delete for later sync', documentId);
+      await enqueueSyncOperation('delete', 'documents', { id: documentId, userId });
+      return;
+    }
     console.error('Error deleting document from Firestore:', error);
     throw error;
   }
 };
-
