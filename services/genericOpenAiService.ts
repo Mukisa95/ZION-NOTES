@@ -8,6 +8,7 @@
 import mammoth from 'mammoth';
 import { GenericChatSession, TranscriptionOption } from '../types';
 import { ProviderMeta } from './providerRegistry';
+import { MATH_DIAGRAM_SKILL } from './mathDiagramSkill';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -295,7 +296,8 @@ const getTranscriptionPrompt = (option: TranscriptionOption): string => {
     `CRITICAL INSTRUCTIONS:\n` +
     `1. For math equations: Use LaTeX wrapped in $$ ... $$ for block math and $ ... $ for inline math.\n` +
     `2. For tables: Recreate them perfectly using standard HTML <table>, <tr>, <th>, and <td> tags.\n` +
-    `3. For diagrams (sets, number lines, geometry, angles, bearings, etc.): Recreate them faithfully using inline <svg> code directly inside the HTML. Ensure SVGs are properly scaled using the viewBox attribute.\n\n` +
+    `3. For ALL diagrams (number lines, sets, Venn diagrams, geometry, angles, bearings, graphs, etc.) you MUST follow the SVG skill rules below EXACTLY:\n\n` +
+    MATH_DIAGRAM_SKILL + `\n\n` +
     `Always return VALID JSON only—no markdown fences or extra commentary.`;
   switch (option) {
     case 'original':
